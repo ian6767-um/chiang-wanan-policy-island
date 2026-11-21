@@ -1,0 +1,14 @@
+{
+  "baits": [
+    { "id": "krill", "name": "南極蝦", "price": 0, "desc": "小型雜食魚、礁岩魚都愛吃。", "sizes": "S、M", "wait": 1.0 },
+    { "id": "sandworm", "name": "沙蟲", "price": 150, "desc": "沙地與底棲的魚（黑鯛、沙梭、午仔）。", "sizes": "S、M、L", "wait": 1.0 },
+    { "id": "squid", "name": "魷魚肉條", "price": 400, "desc": "底棲肉食魚（嘉鱲、紅喉）。", "sizes": "M、L", "wait": 1.05 },
+    { "id": "egi", "name": "木蝦", "price": 600, "desc": "小管、軟絲的最愛，夜裡特別有效。", "sizes": "S、M", "wait": 1.0 },
+    { "id": "minnow", "name": "米諾", "price": 900, "desc": "中型掠食魚。", "sizes": "M、L", "wait": 1.0 },
+    { "id": "softworm", "name": "軟蟲", "price": 1500, "desc": "石斑類。", "sizes": "M、L", "wait": 1.05 },
+    { "id": "glowjig", "name": "夜光鉛頭", "price": 1800, "desc": "白帶魚。夜晚才會發光。", "sizes": "M、L", "wait": 1.0 },
+    { "id": "jig", "name": "鐵板", "price": 3500, "desc": "鰺類、鰤類、土魠、鰹。", "sizes": "L、XL", "wait": 1.1 },
+    { "id": "live", "name": "活餌", "price": 6000, "desc": "大型掠食魚與大型石斑。", "sizes": "L、XL", "wait": 1.15 },
+    { "id": "troll", "name": "拖釣假餌", "price": 15000, "desc": "鬼頭刀、旗魚、鮪。", "sizes": "L、XL", "wait": 1.2 }
+  ]
+}

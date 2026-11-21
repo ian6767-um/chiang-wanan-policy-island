@@ -1,0 +1,8 @@
+{
+  "boats": [
+    { "id": "boat1", "name": "舢舨", "price": 0, "regions": ["A"], "desc": "沒馬達，靠手臂。", "width": 72 },
+    { "id": "boat2", "name": "膠筏", "price": 2000, "regions": ["A", "B"], "desc": "澎湖養殖人家的好夥伴，有點漏水。", "width": 88 },
+    { "id": "boat3", "name": "海鷗號", "price": 10000, "regions": ["A", "B", "C"], "desc": "二手娛樂漁船，引擎聲很大。", "width": 108 },
+    { "id": "boat4", "name": "天人菊號", "price": 35000, "regions": ["A", "B", "C", "D"], "desc": "能出遠洋的釣船，船頭漆著天人菊。", "width": 128 }
+  ]
+}

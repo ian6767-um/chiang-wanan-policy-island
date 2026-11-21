@@ -1,0 +1,9 @@
+{
+  "backpacks": [
+    { "level": 1, "rows": 3, "cols": 8, "price": 0 },
+    { "level": 2, "rows": 4, "cols": 8, "price": 800 },
+    { "level": 3, "rows": 5, "cols": 8, "price": 3000, "require": { "boat": "boat2" } },
+    { "level": 4, "rows": 6, "cols": 8, "price": 9000, "require": { "boat": "boat3" } },
+    { "level": 5, "rows": 6, "cols": 10, "price": 25000, "require": { "boat": "boat4" } }
+  ]
+}

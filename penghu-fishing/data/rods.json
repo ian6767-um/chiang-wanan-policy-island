@@ -1,0 +1,11 @@
+{
+  "rods": [
+    { "id": "rod1", "name": "阿公的竹仔竿", "pull": 2, "price": 0, "desc": "傳了三代，還沒斷過。" },
+    { "id": "rod2", "name": "碳纖岸拋竿", "pull": 4, "price": 300, "desc": "輕巧好用的入門竿。" },
+    { "id": "rod3", "name": "磯釣竿", "pull": 7, "price": 1200, "desc": "適合在玄武岩礁石邊釣。" },
+    { "id": "rod4", "name": "船釣竿", "pull": 12, "price": 4000, "desc": "漁船上的標準配備。" },
+    { "id": "rod5", "name": "鐵板竿", "pull": 25, "price": 12000, "desc": "專門對付鰺類和鰤類。" },
+    { "id": "rod6", "name": "重型拖釣竿", "pull": 60, "price": 40000, "desc": "旗魚、鮪魚都扛得住。" },
+    { "id": "rod7", "name": "老船長的龍骨竿", "pull": 300, "price": 150000, "desc": "圖鑑收集 40 種以上才能買。", "require": { "codex": 40 } }
+  ]
+}

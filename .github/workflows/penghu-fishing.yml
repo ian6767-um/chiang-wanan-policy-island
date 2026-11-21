@@ -1,0 +1,41 @@
+name: 澎湖慢釣 tests
+
+on:
+  push:
+    paths: ['penghu-fishing/**', '.github/workflows/penghu-fishing.yml']
+  pull_request:
+    paths: ['penghu-fishing/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-26.04
+    defaults:
+      run:
+        working-directory: penghu-fishing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install
+        working-directory: .
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          pip install pillow numpy
+      - name: Unit tests (game rules, backpack, data tables)
+        run: npm test
+      - name: Art asset check (palette, alpha, sizes)
+        run: python3 tools/check_assets.py
+      - name: Art pipeline tests
+        run: python3 -m unittest discover -s tests/tools
+      - name: End-to-end (Playwright)
+        run: node tests/e2e.cjs

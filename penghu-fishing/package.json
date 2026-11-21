@@ -1,0 +1,13 @@
+{
+  "name": "penghu-slow-fishing",
+  "private": true,
+  "description": "澎湖慢釣：2D 像素風療癒放置型釣魚遊戲（網頁／PWA）",
+  "scripts": {
+    "serve": "python3 -m http.server 8080",
+    "test": "node --test tests/unit/*.test.js",
+    "test:tools": "python3 -m unittest discover -s tests/tools",
+    "test:e2e": "node tests/e2e.cjs",
+    "check:assets": "python3 tools/check_assets.py",
+    "icons": "node tools/make_icons.cjs"
+  }
+}

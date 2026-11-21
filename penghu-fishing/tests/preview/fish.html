@@ -1,0 +1,22 @@
+<!doctype html><meta charset="utf-8"><title>魚圖預覽</title>
+<body style="background:#e8d9b8;margin:0">
+<canvas id="c" width="1060" height="760" style="image-rendering:pixelated"></canvas>
+<script type="module">
+// 開發用：一次看全部 50 種魚的圖鑑大圖、游動圖與背包圖示
+import { codexArt, swimFrames, packIcon } from '../../src/render/fishart.js';
+import { shapeFor } from '../../src/core/fishing.js';
+const fish = (await (await fetch('../../data/fish.json')).json()).fish;
+const cfg = await (await fetch('../../data/config.json')).json();
+const ctx = document.getElementById('c').getContext('2d');
+let x = 0, y = 0, rowH = 0;
+for (const f of fish) {
+  const a = codexArt(f);
+  if (x + a.w > 1060) { x = 0; y += rowH + 2; rowH = 0; }
+  ctx.drawImage(a.c, x, y); x += a.w + 2; rowH = Math.max(rowH, a.h);
+}
+y += rowH + 6; x = 0;
+for (const f of fish) { const s = swimFrames(f, 'M')[0]; if (x + s.w > 1060) { x = 0; y += 22; } ctx.drawImage(s.c, x, y); x += s.w + 3; }
+y += 26; x = 0;
+for (const f of fish) { const sh = shapeFor(cfg, f, 'L'); const p = packIcon(f, sh, 15, false); if (x + p.w > 1060) { x = 0; y += 48; } ctx.drawImage(p.c, x, y); x += p.w + 3; }
+window.done = true;
+</script>

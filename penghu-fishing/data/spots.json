@@ -1,0 +1,23 @@
+{
+  "_note": "region 需要對應 boats.json 的 regions；map 為地圖座標（480x360 地圖空間）；wait 為等待時間倍率；scene 為背景生成器使用的場景類型。",
+  "regions": [
+    { "id": "A", "name": "馬公內海", "bgm": "inner", "underwater": "seagrass" },
+    { "id": "B", "name": "北海", "bgm": "north", "underwater": "whitesand" },
+    { "id": "C", "name": "西嶼外海", "bgm": "west", "underwater": "basalt" },
+    { "id": "D", "name": "南海（望安・七美・東吉）", "bgm": "south", "underwater": "dropoff" }
+  ],
+  "spots": [
+    { "id": "A1", "region": "A", "name": "觀音亭海堤", "features": "西瀛虹橋、夕陽、煙火", "scene": "rainbow_bridge", "wait": 1.0, "map": [258, 206], "ambient": "harbor" },
+    { "id": "A2", "region": "A", "name": "馬公第三漁港", "harbor": true, "features": "漁船、魚市、釣具店", "scene": "harbor", "wait": 1.0, "map": [276, 222], "ambient": "harbor" },
+    { "id": "A3", "region": "A", "name": "桶盤嶼", "features": "玄武岩柱、潮間帶", "scene": "basalt_isle", "wait": 1.0, "map": [236, 246], "ambient": "waves" },
+    { "id": "B1", "region": "B", "name": "白沙跨海大橋", "features": "長橋、夜晚的橋燈", "scene": "long_bridge", "wait": 1.0, "map": [232, 128], "ambient": "wind" },
+    { "id": "B2", "region": "B", "name": "吉貝沙尾", "features": "白沙灘、淺綠色的海", "scene": "sand_spit", "wait": 0.95, "map": [292, 62], "ambient": "waves" },
+    { "id": "B3", "region": "B", "name": "目斗嶼燈塔", "features": "黑白條紋燈塔、浪大、戲劇性的雲", "scene": "lighthouse", "wait": 1.05, "map": [318, 26], "ambient": "wind" },
+    { "id": "C1", "region": "C", "name": "小門嶼鯨魚洞", "features": "海蝕洞、海鳥", "scene": "sea_arch", "wait": 1.05, "map": [186, 98], "ambient": "seabirds" },
+    { "id": "C2", "region": "C", "name": "大菓葉玄武岩", "features": "柱狀玄武岩牆", "scene": "basalt_wall", "wait": 1.0, "map": [178, 140], "ambient": "waves" },
+    { "id": "C3", "region": "C", "name": "外垵漁港", "features": "漁村、漁翁島燈塔", "scene": "village", "wait": 1.0, "map": [182, 222], "ambient": "harbor" },
+    { "id": "D1", "region": "D", "name": "望安外海", "features": "綠蠵龜剪影（只當背景）、平靜的海", "scene": "flat_isle", "wait": 1.05, "map": [250, 296], "ambient": "calm" },
+    { "id": "D2", "region": "D", "name": "七美雙心石滬", "features": "心形石滬、潮汐", "scene": "heart_weir", "wait": 1.1, "map": [226, 340], "ambient": "calm" },
+    { "id": "D3", "region": "D", "name": "東吉嶼深海", "features": "深藍、湧浪、大型魚", "scene": "deep_sea", "wait": 1.15, "map": [338, 300], "ambient": "swell" }
+  ]
+}

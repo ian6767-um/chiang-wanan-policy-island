@@ -1,0 +1,10 @@
+#!/bin/sh
+# 安裝：cp penghu-fishing/tools/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+# 有改到遊戲的美術資產時，檢查是否符合美術聖經；有改到程式或資料時跑單元測試。
+cd "$(git rev-parse --show-toplevel)/penghu-fishing" || exit 0
+if git diff --cached --name-only | grep -q '^penghu-fishing/\(assets\|palette\)/'; then
+  python3 tools/check_assets.py || { echo "美術資產檢查失敗，請修正後再提交"; exit 1; }
+fi
+if git diff --cached --name-only | grep -q '^penghu-fishing/\(src\|data\)/'; then
+  node --test tests/unit/*.test.js >/dev/null || { echo "單元測試失敗：npm test 看詳細"; exit 1; }
+fi

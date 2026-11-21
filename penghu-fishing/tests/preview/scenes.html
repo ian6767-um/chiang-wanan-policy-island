@@ -1,0 +1,33 @@
+<!doctype html><meta charset="utf-8"><title>場景預覽</title>
+<body style="background:#1c1418;margin:0">
+<canvas id="c" style="image-rendering:pixelated"></canvas>
+<script type="module">
+// 開發用：?tone=day&spots=A1,A2&w=640 一次看多個釣點
+import { loadData } from '../../src/core/data.js';
+import { Game, newState } from '../../src/core/game.js';
+import { World } from '../../src/game/world.js';
+const q = new URLSearchParams(location.search);
+const data = await loadData(async (n) => (await fetch(`../../data/${n}.json`)).json());
+const tone = q.get('tone') || 'day';
+const hours = { dawn: 6, day: 12, golden: 17.5, sunset: 18.5, night: 22 };
+const spots = (q.get('spots') || data.spots.map((s) => s.id).join(',')).split(',');
+const W = +(q.get('w') || 640), cols = +(q.get('cols') || 2);
+const cv = document.getElementById('c');
+cv.width = W * cols; cv.height = 360 * Math.ceil(spots.length / cols);
+const ctx = cv.getContext('2d');
+spots.forEach((id, i) => {
+  const st = newState(data, Date.now(), 5);
+  st.spot = id; st.clock.minutes = hours[tone] * 60;
+  st.boat = q.get('boat') || 'boat4';
+  const g = new Game(data, st);
+  g.weather = () => q.get('weather') || 'sunny';
+  const w = new World(g, {});
+  w.paused = false;
+  for (let k = 0; k < 40; k++) w.update(0.1);
+  const off = document.createElement('canvas'); off.width = W; off.height = 360;
+  const o = off.getContext('2d'); o.imageSmoothingEnabled = false;
+  w.render(o, W, {});
+  ctx.drawImage(off, (i % cols) * W, Math.floor(i / cols) * 360);
+});
+window.done = true;
+</script>
