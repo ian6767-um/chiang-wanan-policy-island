@@ -1,6 +1,6 @@
 // 馬公第三漁港魚市：阿伯、背包格子、售價清單、每日魚價。
 import { h, btn, pxCanvas, fmt, fmtW, pick } from './dom.js';
-import { packIcon, codexArt } from '../render/fishart.js';
+import { packIcon, thumbArt } from '../render/fishart.js';
 import { portrait } from '../render/portraits.js';
 import { icon } from '../render/icons.js';
 import { itemDims } from '../core/backpack.js';
@@ -86,7 +86,7 @@ export class MarketPanel {
         const fish = this.data.fishById[it.fish.sp];
         const mult = m.mult[fish.id];
         return h('div', { class: `sell-row${this.sel.has(it.uid) ? ' sel' : ''}`, 'data-test': 'sell-row', onClick: () => this.toggle(it.uid) },
-          pxCanvas(codexArt(fish), 32, 16), h('span', {}, fish.name), h('span', { class: 'size' }, it.fish.size), h('span', { class: 'muted' }, `${fmtW(it.fish.w)}kg`),
+          pxCanvas(thumbArt(fish)), h('span', {}, fish.name), h('span', { class: 'size' }, it.fish.size), h('span', { class: 'muted' }, `${fmtW(it.fish.w)}kg`),
           m.hot.includes(fish.id) ? h('span', { class: 'hot' }, '熱門') : h('span', { class: 'muted' }, `×${mult.toFixed(2)}`),
           h('span', { class: 'p' }, `${fmt(g.priceOfItem(it.fish))}`));
       });

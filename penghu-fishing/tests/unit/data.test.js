@@ -1,7 +1,7 @@
 // 資料檢查：確認 JSON 與設計文件的資料表一致、而且每條魚都真的釣得到。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { validateData } from '../../src/core/data.js';
 import { buildPool, shapeFor, SIZES } from '../../src/core/fishing.js';
@@ -86,6 +86,12 @@ test('每一種魚的每一種體型，都放得進「初始」3x8 背包', () =
   }
 });
 
+test('參考圖：有 sprite 的魚，檔案存在', () => {
+  const withRef = data.fish.filter((f) => f.art.sprite);
+  assert.deepEqual(withRef.map((f) => f.id).sort(), ['f28', 'f38', 'f40', 'f41', 'f43']);
+  for (const f of withRef) assert.ok(existsSync(join(ROOT, f.art.sprite)), f.art.sprite);
+});
+
 test('每個海域都有船可以到', () => {
   for (const r of data.regions) assert.ok(data.boats.some((b) => b.regions.includes(r.id)), r.id);
 });
@@ -95,6 +101,6 @@ test('魚的配色只用主調色盤的顏色', () => {
   assert.ok(pal.size <= 64, `調色盤 ${pal.size} 色`);
   for (const f of data.fish) {
     const a = f.art;
-    for (const c of [...a.c, a.b, a.pc, a.f]) assert.ok(pal.has(c.toLowerCase()), `${f.name} 用了調色盤外的顏色 ${c}`);
+    for (const c of [...a.c, a.b, a.pc, a.f, a.fd, a.pc2, a.band, a.band2, a.eyeband].filter(Boolean)) assert.ok(pal.has(c.toLowerCase()), `${f.name} 用了調色盤外的顏色 ${c}`);
   }
 });

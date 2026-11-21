@@ -92,9 +92,9 @@ canvas.px { image-rendering: pixelated; image-rendering: crisp-edges; display: b
 .size { display: inline-block; min-width: 18px; text-align: center; background: var(--ink); color: var(--gold); padding: 1px 3px; }
 
 /* ---------- 漁獲卡 ---------- */
-.card { position: absolute; z-index: 30; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 280px; background: var(--paper2); border: 2px solid var(--ink); box-shadow: inset 0 0 0 3px var(--paper), inset 0 0 0 4px #b98450, 0 3px 0 var(--ink); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.card { position: absolute; z-index: 30; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 280px; max-height: calc(100% - 8px); background: var(--paper2); border: 2px solid var(--ink); box-shadow: inset 0 0 0 3px var(--paper), inset 0 0 0 4px #b98450, 0 3px 0 var(--ink); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; align-items: center; }
 .card .ribbon { align-self: stretch; text-align: center; font-size: 14px; line-height: 18px; padding: 2px; border: 1px solid var(--ink); }
-.card .fishbox { background: #d8f3ee; border: 1px solid var(--ink); width: 100%; display: grid; place-items: center; min-height: 72px; }
+.card .fishbox { background: #d8f3ee; border: 1px solid var(--ink); width: 100%; display: grid; place-items: center; min-height: 84px; padding: 2px 0; }
 .card h3 { margin: 0; font-size: 16px; line-height: 18px; font-weight: normal; }
 .card .stats { display: flex; gap: 8px; align-items: center; }
 .card .flag { color: var(--bad); font-size: 14px; animation: blink 0.6s steps(2) infinite; }
@@ -141,7 +141,7 @@ canvas.px { image-rendering: pixelated; image-rendering: crisp-edges; display: b
 .item-card.owned { background: #d9c29a; }
 .item-card .need { color: var(--bad); }
 .fishicons { display: flex; gap: 2px; flex-wrap: wrap; }
-.fishicons canvas { width: 24px; height: 12px; }
+.fishicons canvas { width: 32px; height: 18px; }
 .sell-list { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .sell-row { display: flex; gap: 4px; align-items: center; padding: 2px 4px; border: 1px solid transparent; min-height: 28px; cursor: pointer; }
 .sell-row.sel { background: var(--paper2); border-color: var(--gold); }
@@ -162,7 +162,7 @@ canvas.px { image-rendering: pixelated; image-rendering: crisp-edges; display: b
 .codex-grid { display: flex; flex-wrap: wrap; gap: 3px; align-content: flex-start; }
 .codex-grid h4 { width: 100%; margin: 4px 0 0; font-weight: normal; color: #6b4a3a; }
 .cfish { width: 34px; height: 34px; border: 1px solid #b89b72; background: #f1e3c8; display: grid; place-items: center; cursor: pointer; position: relative; padding: 0; }
-.cfish canvas { width: 32px; height: 16px; }
+.cfish canvas { width: 32px; height: 18px; }
 .cfish.sel { outline: 2px solid var(--gold); outline-offset: -1px; }
 .cfish .q { position: absolute; right: 1px; top: 0; color: #f1e3c8; }
 .sizes span { display: inline-block; width: 22px; text-align: center; border: 1px solid #b89b72; margin-right: 2px; color: #b89b72; }

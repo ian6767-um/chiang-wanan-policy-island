@@ -1,7 +1,8 @@
 // PWA 離線快取：先用快取，背景更新。改版時把 VERSION 加一。
-const VERSION = 'penghu-v1';
+const VERSION = 'penghu-v2';
 const CORE = [
   './', 'index.html', 'style.css', 'manifest.webmanifest', 'assets/fonts/Cubic_11.woff2', 'assets/icons/icon-192.png', 'assets/icons/icon-512.png',
+  'assets/fish/art/f28.png', 'assets/fish/art/f38.png', 'assets/fish/art/f40.png', 'assets/fish/art/f41.png', 'assets/fish/art/f43.png',
   'data/config.json', 'data/fish.json', 'data/spots.json', 'data/rods.json', 'data/baits.json', 'data/boats.json', 'data/backpacks.json', 'data/dialog.json',
   'src/game/main.js', 'src/game/world.js', 'src/game/screen.js', 'src/game/audio.js',
   'src/core/data.js', 'src/core/game.js', 'src/core/backpack.js', 'src/core/fishing.js', 'src/core/clock.js', 'src/core/market.js', 'src/core/offline.js', 'src/core/save.js', 'src/core/rng.js',

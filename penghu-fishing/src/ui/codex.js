@@ -1,6 +1,6 @@
 // 魚類圖鑑：筆記本左右兩頁。右頁魚格子（依釣點／稀有度／名稱排序），左頁詳細資料與最大紀錄。
 import { h, btn, pxCanvas, fmtW, onSwipe } from './dom.js';
-import { codexArt } from '../render/fishart.js';
+import { codexArt, thumbArt } from '../render/fishart.js';
 import { icon } from '../render/icons.js';
 import { PHASE_NAMES, WEATHER_NAMES } from '../core/clock.js';
 
@@ -54,7 +54,7 @@ export class CodexPanel {
       const e = g.state.codex[f.id];
       const state = e?.caught ? 'caught' : e?.seen ? 'seen' : 'none';
       const b = h('button', { class: `cfish${this.sel === f.id ? ' sel' : ''}`, type: 'button', title: state === 'caught' ? f.name : '？？？', 'data-test': `codex-${f.id}`, 'data-state': state, onClick: () => { this.sel = f.id; this.ui.sfx('click'); this.ui.refreshPanel(); } },
-        state === 'none' ? null : pxCanvas(codexArt(f, state === 'seen'), 32, 16),
+        state === 'none' ? null : pxCanvas(thumbArt(f, state === 'seen')),
         state === 'seen' ? h('span', { class: 'q' }, '?') : null);
       return b;
     };
@@ -90,7 +90,7 @@ export class CodexPanel {
       + (f.season_only ? `｜只在${f.season_only.map((s) => this.data.config.seasons.names[s]).join('、')}季` : '');
     const best = e?.best;
     return [
-      h('div', { style: { display: 'grid', placeItems: 'center', background: '#d8f3ee', border: '1px solid #b89b72', minHeight: '68px' } }, art),
+      h('div', { style: { display: 'grid', placeItems: 'center', background: '#d8f3ee', border: '1px solid #b89b72', minHeight: '84px' } }, art),
       h('div', { class: 'row' }, h('span', { style: { fontSize: '16px' } }, known ? f.name : '？？？'), h('span', { class: `rar ${f.rarity}` }, this.ui.rarityNames[f.rarity])),
       sizes,
       h('dl', { class: 'dl' },

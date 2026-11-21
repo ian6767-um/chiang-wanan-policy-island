@@ -1,0 +1,16 @@
+{
+  "source": "/tmp/claude-0/-home-user-chiang-wanan-policy-island/947f40c1-c043-59a8-98ab-cce5d4b26bd0/images/3.png",
+  "source_sha256": "086f3cff56d0147ac938cb0e75dc12420af531dbfb80a9fa88d7c8a6db0dacd3",
+  "size": [
+    68,
+    36
+  ],
+  "type": "sprite",
+  "cell": 8,
+  "method": "nearest",
+  "dither": false,
+  "orphans_removed": 0,
+  "outline_pixels": 0,
+  "palette": "/home/user/chiang-wanan-policy-island/penghu-fishing/palette/master.hex",
+  "created": "2026-11-21T13:04:32+00:00"
+}

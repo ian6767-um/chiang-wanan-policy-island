@@ -2,7 +2,7 @@
 import { h, btn, pxCanvas, fmt, pick, onSwipe } from './dom.js';
 import { portrait } from '../render/portraits.js';
 import { icon } from '../render/icons.js';
-import { codexArt } from '../render/fishart.js';
+import { thumbArt } from '../render/fishart.js';
 
 const TABS = [['rod', '釣竿'], ['bait', '魚餌'], ['boat', '船'], ['backpack', '背包']];
 
@@ -70,7 +70,7 @@ export class ShopPanel {
         const fish = D.fish.filter((f) => f.baits.includes(b.id));
         const icons = h('div', { class: 'fishicons' }, fish.map((f) => {
           const e = g.state.codex[f.id];
-          return pxCanvas(codexArt(f, !(e && e.caught)), 24, 12);
+          return pxCanvas(thumbArt(f, !(e && e.caught)));
         }));
         return this.card('bait', b.id, b.name, b.desc, b.price, [`適合體型：${b.sizes}｜有效魚種 ${fish.length} 種`, icons], 'bait', g.state.bait === b.id);
       });

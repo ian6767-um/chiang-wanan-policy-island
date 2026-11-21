@@ -1,7 +1,7 @@
 // 介面總管：HUD、提示、面板切換、漁獲卡、離線摘要、標題與結局畫面。
 import { h, btn, pxCanvas, fmt, fmtW, pick } from './dom.js';
 import { icon, SEASON_ICON, WEATHER_ICON } from '../render/icons.js';
-import { codexArt } from '../render/fishart.js';
+import { codexArt, thumbArt } from '../render/fishart.js';
 import { formatClock, PHASE_NAMES, WEATHER_NAMES } from '../core/clock.js';
 import { anyFishFor } from '../core/fishing.js';
 import { BackpackPanel } from './backpack.js';
@@ -296,7 +296,7 @@ export class UI {
       h('h3', {}, '你不在的時候……'),
       h('div', { class: 'muted' }, `離開了 ${hours ? `${hours} 小時 ` : ''}${mins} 分鐘${sum.rawSeconds > sum.seconds ? `（最多計算 ${this.cfg.offline.maxHours} 小時）` : ''}`),
       h('div', {}, `釣到 ${sum.caught} 條，保留 ${sum.kept.length} 條，放生 ${sum.released + sum.autoReleased} 條，斷線 ${sum.broke} 次`),
-      kept.length ? h('div', { class: 'fishicons', style: { justifyContent: 'center' } }, kept.map((i) => pxCanvas(codexArt(this.data.fishById[i.sp]), 32, 16))) : null,
+      kept.length ? h('div', { class: 'fishicons', style: { justifyContent: 'center' } }, kept.map((i) => pxCanvas(thumbArt(this.data.fishById[i.sp])))) : null,
       sum.newSpecies.length ? h('div', { class: 'flag new' }, `新魚種：${sum.newSpecies.map((id) => this.data.fishById[id].name).join('、')}`) : null,
       h('div', { class: sum.stoppedFull ? 'full' : 'muted' }, sum.stoppedFull ? '背包滿了，小卷和你在船上睡著了。' : `背包 ${this.game.pack.usedCells}/${this.game.pack.totalCells} 格`),
       h('div', { class: 'btns' }, btn('好', () => { el.remove(); if (sum.stoppedFull) this.app.world.stop(); }, 'primary', { 'data-test': 'btn-offline-ok' })));

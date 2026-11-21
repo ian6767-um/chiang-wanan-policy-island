@@ -12,6 +12,7 @@ import { h, btn } from '../ui/dom.js';
 import { TONES } from '../render/tones.js';
 import { catSprite } from '../render/actors.js';
 import { rect, PAL as C } from '../render/pixel.js';
+import { loadFishSprites } from '../render/fishart.js';
 
 const storage = {
   get() { try { return localStorage.getItem(SAVE_KEY); } catch { return null; } },
@@ -26,6 +27,7 @@ class App {
       if (!r.ok) throw new Error(`讀不到 data/${n}.json`);
       return r.json();
     });
+    await loadFishSprites(this.data);
     const errs = validateData(this.data);
     if (errs.length) console.warn('資料檢查：', errs);
     this.cfg = this.data.config;

@@ -144,13 +144,26 @@ def sel_out(rgb, alpha):
 def process(args):
     src = Path(args.input)
     img = Image.open(src).convert("RGBA")
-    w, h = (int(v) for v in args.size.lower().split("x"))
-    if w % 2 or h % 2:
-        raise SystemExit(f"目標尺寸必須是偶數：{w}x{h}")
     cell = args.cell if args.cell != "auto" else detect_cell(img.convert("RGB"))
     cell = int(cell)
     method = args.method or ("box" if args.type == "background" else "nearest")
-    small = downscale(img, (w, h), cell, method)
+    if args.trim:
+        # 依像素格縮回原生解析度（取每格中心點），裁到不透明範圍，再補成偶數寬高
+        a = np.asarray(img)[cell // 2::cell, cell // 2::cell]
+        ys, xs = np.nonzero(a[:, :, 3] >= 128)
+        a = a[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+        hh, ww = a.shape[:2]
+        pad = np.zeros((hh + hh % 2, ww + ww % 2, 4), np.uint8)
+        pad[:hh, :ww] = a
+        small = Image.fromarray(pad, "RGBA")
+        w, h = small.size
+    else:
+        if not args.size:
+            raise SystemExit("需要 --size 或 --trim")
+        w, h = (int(v) for v in args.size.lower().split("x"))
+        if w % 2 or h % 2:
+            raise SystemExit(f"目標尺寸必須是偶數：{w}x{h}")
+        small = downscale(img, (w, h), cell, method)
     arr = np.asarray(small)
     rgb, alpha = arr[:, :, :3], arr[:, :, 3]
     alpha = binarize_alpha(alpha) if args.type != "background" else np.full_like(alpha, 255)
@@ -180,7 +193,8 @@ def process(args):
 def main(argv=None):
     p = argparse.ArgumentParser(description="把 AI 生成圖轉成符合美術聖經的像素圖")
     p.add_argument("input")
-    p.add_argument("--size", required=True, help="目標尺寸，例如 128x64")
+    p.add_argument("--size", help="目標尺寸，例如 128x64")
+    p.add_argument("--trim", action="store_true", help="輸入已經是放大的像素圖：縮回原生解析度並裁掉透明邊")
     p.add_argument("--type", choices=TYPES, required=True)
     p.add_argument("--out", required=True)
     p.add_argument("--cell", default="auto", help="像素格大小（auto 自動偵測）")
