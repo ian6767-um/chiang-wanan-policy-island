@@ -1,0 +1,13 @@
+{
+  "name": "abyss-hunters",
+  "private": true,
+  "type": "module",
+  "description": "深淵獵團 — 最多 4 人的像素地城共鬥網頁遊戲",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests/sim-test.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
