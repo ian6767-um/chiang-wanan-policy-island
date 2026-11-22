@@ -118,9 +118,32 @@ const TPL = {
   dragon: ['........', '.k....kk', 'kWk..kaa', 'kWWkkaaa', 'kWWWkaga', 'kWWWkaaa', '.kWWkaaa', '..kWkayy', '...kkayy', '....kayy', '....kaay', '...kaaaa', '...kakka', '..kak..k', '..kk....', '........'],
   lich: ['......kk', '.....kvv', '....kvvv', '...kvvkk', '...kvkww', '...kvkwg', '...kvkww', '..kvvvkw', '.kvvvvvk', 'kvVvvvvv', 'kvVvvgvv', 'kvVvvvvv', '.kVvvvvv', '.kVVvvvv', '..kVVVVV', '...kkkkk'],
   queen: ['....y.y.', '....yyyy', 'k...kaaa', 'kk.kaLaa', '.kkaLaee', '..kaaaaa', 'kkkkaaaa', '...kAbab', '..kAaaba', '.kAaaaab', 'kkAaaaba', 'k.kAaaab', '..kkAAaa', '.k..kkAA', 'k.....kk', '........'],
+  general: ['.k......', '.kk..kkk', '..kkkyyy', '...kwwww', '..kwwwww', '..kwkkww', '..kwkgkw', '..kwwwww', '...kwkwk', '.kkkaaaa', 'kccaaLaa', 'kccaaaya', 'kccaaaaa', 'kcckmmmm', '.kckwkkw', '..kkkk.k'],
+  gargoyle: ['........', 'k.....kk', 'kk...kaa', 'kak.kaLa', 'kaakaaaa', 'kaakaagk', 'kaaakaaa', 'kaaakwkw', '.kaakaaa', '..kkaaLa', '...kaaaa', '...kAaaa', '...kAAaa', '...kak.k', '..kak...', '..kk....'],
+  shroomKing: ['...y.y.y', '...yyyyy', '....kkkk', '..kkaaaa', '.kaawaaa', 'kaLaaaaw', 'kawaaaaa', 'kAaaaaaa', 'kkkkkkkk', '...kbbbb', '...kbebb', '...kbbbb', '..kbbbBb', '..kbbbbb', '...kBBBB', '....kkkk'],
+  demon: ['k.......', 'kk......', '.kk..kkk', '..kkkaaa', '...kaLaa', '..kaaaag', '..kaaaaa', '..kakwkw', '.kkaaaaa', 'kaakaLaa', 'kaaakaaa', 'kAakkaaa', '.kk.kaAa', '....kaAA', '...kaak.', '...kkk..'],
+  core: ['....kkkk', '..kkyyyy', '.kyykkkk', '.kykaaaa', 'kykaLggg', 'kykaggww', 'kykaggww', 'kykaLggg', '.kykaaaa', '.kyykkkk', '..kkyyyy', '....kkkk', '...kmmmm', '..kmMmMm', '.kkkkkkk'],
+  icequeen: ['...y.y.y', '...yyyyy', '....kkkk', '...khhhh', '..khssss', '..khsess', '..khssss', '..khhkSS', '..khhaaa', '.kaaaLaa', 'kaaaaLya', 'ksaaaaaa', '.kaaaaLa', '.kaaaaaa', 'kaaaaaaa', 'kkkkkkkk'],
+  witch: ['......k.', '.....kak', '....kaaa', '...kaaLa', '..kaaaay', 'kkkkkkkk', '..khssss', '..khsess', '..khssss', '...kkaaa', '..kaaaaa', '.kaLwwyw', '.kaawkyw', '.kaawwww', '..kaaaaa', '.kkkkkkk'],
+  heart: ['..kkk...', '.kaaak.k', 'kaLaaakk', 'kaLaaaak', 'kaaaaaab', 'kaaabaaa', 'kaaaabaa', '.kaaaaga', '.kaaaaaa', '..kaaaaa', '...kaaaa', '..k.kaaa', '.k...kaa', 'k.....kA', '.......k', '........'],
+  banner: ['....k', '...ky', '..kyr', '..kyy', '..kyy', '...ky', '....k', '....k', '....k', '....k', '...kk'],
+  egg: ['..kkk', '.kLaa', 'kLaaa', 'kaaba', 'kabaa', 'kaaaa', '.kAaa', '..kkk'],
+  root: ['....k', '...ka', '..kaL', '..kaa', '.kaaa', '.kaAa', 'kAaaa', 'kaaAa', 'kkkkk'],
+  phyl: ['..kkk', '.kggg', 'kgLgg', 'kgggg', '.kggg', '..kkk', '..kmm', '.kmMm', 'kkkkk'],
   voidlord: ['..y..y..', '..yy.yy.', '...yyyyy', '...kkkkk', '.kkaaaaa', 'kaaLwwww', 'kaLwwbbb', 'kawwbbee', 'kawwbbee', 'kaawwbbb', 'kAaawwww', '.kAAaaaa', '..kkAkAA', '.kA.kA.k', 'kA..kA..', 'k...k...'],
 };
 const BOSS_PAL = {
+  general: { w: '#e9e6dc', a: '#5a5a6e', L: '#8a8aa0', c: '#8a1a2a', m: '#ffd34d', g: '#ff4a3a' },
+  gargoyle: { a: '#7a7a8a', A: '#4a4a58', L: '#a8a8b8', g: '#ff3a3a' },
+  gargoyle2: { a: '#6a7a8a', A: '#3a4a58', L: '#98a8b8', g: '#4ad8ff' },
+  flowerKing: { a: '#c82a6a', A: '#6a1038', L: '#ff7ab0', b: '#ffd34d', g: '#3a8a2a', G: '#1f5a14' },
+  shroomKing: { a: '#9a3ad8', A: '#5a1a8a', L: '#d08aff', b: '#e8d6b0', B: '#b0a080' },
+  demon: { a: '#c8301a', A: '#6a1408', L: '#ff7a3a', g: '#ffe14a', w: '#ffffff' },
+  core: { a: '#5a2418', L: '#a8401a', g: '#ff8a2a', w: '#fff0a0', y: '#ffd34d', m: '#4a4040', M: '#2a2020' },
+  icequeen: { a: '#8fd8ff', A: '#3a8ab8', L: '#e8f8ff', y: '#e8f8ff', h: '#ffffff', s: '#d8e8f8', S: '#a8c0d8' },
+  deathknight: { m: '#5a6a7a', M: '#2a3440', L: '#a8c0d8', a: '#5ff2ff', g: '#5ff2ff' },
+  witch: { a: '#3a2a6e', A: '#1f1440', L: '#6a5ab0', y: '#ffd34d', w: '#f0e8ff', h: '#e8e0f0' },
+  heart: { a: '#8a1a4a', A: '#4a0a24', L: '#e04a8a', b: '#3a0a1a', g: '#ff4af0' },
   golem: { a: '#8b8d99', A: '#5a5c68', g: '#5ff2ff' },
   dragon: { a: '#d8452a', W: '#8a3a6a', y: '#ffc04a', g: '#ffe14a' },
   lich: { v: '#3a6a9a', V: '#1a3a5a', w: '#e9e6dc', g: '#5ff2ff' },
@@ -187,8 +210,8 @@ export function enemySprite(type) {
   const key = 'e:' + type;
   if (cache.has(key)) return cache.get(key);
   let s;
-  if (BOSSES[type]) { const spr = BOSSES[type].spr; s = set(toCanvas(mirror(TPL[spr]), { ...BASE, ...BOSS_PAL[spr] })); }
-  else { const d = ENEMIES[type]; s = set(toCanvas(mirror(TPL[d.spr]), { ...BASE, m: '#8a94a8', M: '#4a5468', b: '#7a5230', B: '#4a3020', ...d.pal })); }
+  if (BOSSES[type]) { const spr = BOSSES[type].spr; s = set(toCanvas(mirror(TPL[spr]), { ...BASE, m: '#8a94a8', M: '#4a5468', ...(BOSS_PAL[type] || BOSS_PAL[spr]) })); }
+  else { const d = ENEMIES[type]; s = set(toCanvas(mirror(TPL[d.spr]), { ...BASE, m: '#8a94a8', M: '#4a5468', b: '#7a5230', B: '#4a3020', ...(d.pal || BOSS_PAL[d.spr]) })); }
   cache.set(key, s);
   return s;
 }

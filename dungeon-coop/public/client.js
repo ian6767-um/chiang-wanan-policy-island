@@ -2,6 +2,8 @@ import { Game, T } from './sim.js';
 import { CLASSES, ENEMIES, BOSSES, BOON_MAP, SPECIAL, TAGS, RES, DOORS, SHOP, CHAPTERS, STAGES_PER_CHAPTER, crystalsFor } from './data.js';
 import { playerSprite, enemySprite, objSprite } from './sprites.js';
 import { loadSave, persist, metaFor, createCamp, spriteCanvas } from './camp.js';
+import { initMusic, playSong, playJingle, stopMusic, toggleMute, isMuted, currentSong, musicLevel, musicTap } from './music.js';
+import { drawKeyArt } from './keyart.js';
 
 const $ = id => document.getElementById(id);
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -42,7 +44,7 @@ let AC = null, master = null, noiseBuf = null;
 const lastS = {};
 function audioInit() {
   if (AC) return;
-  try { AC = new (window.AudioContext || window.webkitAudioContext)(); master = AC.createGain(); master.gain.value = 0.3; master.connect(AC.destination); } catch { AC = null; }
+  try { AC = new (window.AudioContext || window.webkitAudioContext)(); master = AC.createGain(); master.gain.value = 0.3; master.connect(AC.destination); initMusic(AC, AC.destination); } catch { AC = null; }
 }
 function tone(f, d, type = 'square', v = 0.12, f2 = null, delay = 0) {
   const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
@@ -115,6 +117,10 @@ const myName = () => { const n = $('name').value.trim().slice(0, 10) || '獵人'
 const camp = createCamp(save, () => { $('menuCrys').textContent = save.crystals; sendMeta(true); });
 function openCamp(back, cls) { uiBack = back; if (cls) camp.setClass(cls); camp.render(); show('camp'); }
 $('btnCamp').onclick = () => openCamp('menu');
+const musicBtn = $('btnMusic');
+const musicLabel = () => { musicBtn.textContent = isMuted() ? '♪ 音樂：關' : '♪ 音樂：開'; };
+musicBtn.onclick = () => { audioInit(); toggleMute(); musicLabel(); };
+musicLabel();
 $('btnCamp2').onclick = () => openCamp('lobby', lobbyState && (lobbyState.players.find(p => p.id === myId) || {}).cls);
 $('btnCamp3').onclick = () => openCamp('local');
 $('btnCampBack').onclick = () => { show(uiBack); if (uiBack === 'lobby') renderLobby(); if (uiBack === 'local') renderLocal(); };
@@ -263,6 +269,7 @@ addEventListener('keydown', e => {
   keys.add(e.code);
   if (inGame && ['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault();
   if (e.code === 'Tab') showBoons = true;
+  if (e.code === 'KeyM') { toggleMute(); musicLabel(); }
   if (e.code === 'Escape' && inGame) leaveGame();
   if (e.code === 'Enter' && inGame && mode === 'local' && snap && snap.st === 'over') startLocal();
 });
@@ -417,7 +424,9 @@ function drawMapCanvas(m) {
 
 // ---------- 事件 / 特效 ----------
 const DIE_COL = { slime: '#5ccf5c', bat: '#9a6fc0', skel: '#e9e6dc', brute: '#6aa84f', shroom: '#d8443c', ghost: '#c8f0e0', spider: '#6a5040', eye: '#ff4af0',
-  imp: '#d8302a', wisp: '#ffb03a', worm: '#ff7a3a', armor: '#8a94a8', crystal: '#8fd8ff', plant: '#e04a8a', beetle: '#3a7a5a', robe: '#6a3ab0', bomb: '#ff8a2a', mimic: '#ffd34d' };
+  imp: '#d8302a', wisp: '#ffb03a', worm: '#ff7a3a', armor: '#8a94a8', crystal: '#8fd8ff', plant: '#e04a8a', beetle: '#3a7a5a', robe: '#6a3ab0', bomb: '#ff8a2a', mimic: '#ffd34d',
+  golem: '#8b8d99', queen: '#9be04a', dragon: '#ff6a2a', lich: '#5ff2ff', voidlord: '#ff4af0', general: '#e9e6dc', gargoyle: '#8a8a9a', shroomKing: '#d08aff', demon: '#ff5a2a',
+  core: '#ffb04a', icequeen: '#bfeaff', witch: '#b07cff', heart: '#e04a8a', banner: '#c8202f', egg: '#d8e8c0', root: '#4a8a3a', phyl: '#5ff2ff', shadow: '#5a3a8a' };
 const PUFF_COL = { arrow: '#e8d9b0', fire: '#ff9a3a', holy: '#fff6b0', bone: '#e9e6dc', spore: '#b56cff', rock: '#8d8f99', efire: '#ff6a2a', dark: '#a46bff', fireball: '#ff7a2a',
   ice: '#bfeaff', seed: '#8ae04a', web: '#ffffff', sword: '#c8dcff', shard: '#bfeaff', wind: '#6dffc4', knife: '#c08cff', hbolt: '#fff6b0' };
 const BOOM_COL = { fire: ['255,140,50', '#ff8a3a'], poison: ['140,230,70', '#9be04a'], ice: ['143,220,255', '#bfeaff'], zap: ['255,230,80', '#ffe14a'], steel: ['200,210,230', '#e0e8ff'], enemy: ['255,80,60', '#ff6a4a'] };
@@ -453,6 +462,7 @@ function handleEvents(evs) {
     case 'snd': sfx(e.s); break;
     case 'skill': sfx('skill'); break;
     case 'boss': fx.bossIntro = { n: e.n, t: 2.8 }; sfx('boss'); break;
+    case 'immune': fx.nums.push({ x: e.x + (Math.random() - 0.5) * 10, y: e.y, v: '無效', c: '#9a9ab0', t: 0.5 }); break;
     case 'stage': cam.init = false; stageT = 0; cursors.clear(); break;
     case 'over': onOver(e); break;
     case 'dust': burst(e.x, e.y + 3, 6, '#9a93a8', 30, 0.35); break;
@@ -473,6 +483,7 @@ function onOver(e) {
   if (e.ch > save.best.ch || (e.ch === save.best.ch && e.sg > save.best.sg)) save.best = { ch: e.ch, sg: e.sg };
   persist(save);
   overInfo = { ...e, crystals };
+  jingleLock = true; playJingle(e.win ? 'victory' : 'gameover');
 }
 function updateFx(dt) {
   for (const p of fx.parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.9; p.vy *= 0.9; p.t -= dt; }
@@ -485,6 +496,24 @@ function updateFx(dt) {
   if (fx.bossIntro) { fx.bossIntro.t -= dt; if (fx.bossIntro.t <= 0) fx.bossIntro = null; }
   shake = Math.max(0, shake - dt * 18);
   stageT += dt;
+}
+
+// ---------- 配樂 ----------
+const BOSS_KEY = [0, 2, -3, 3, -2];
+let jingleLock = false;
+function updateMusic() {
+  if (!AC) return;
+  if (!inGame || !snap) {
+    jingleLock = false;
+    playSong($('camp').classList.contains('hidden') ? 'title' : 'camp');
+    return;
+  }
+  if (snap.st === 'over' || jingleLock) return;
+  const ty = snap.ty;
+  if (ty === 'boss' && (snap.ph === 'fight' || (snap.bs && snap.bs.length))) {
+    if (snap.cp >= CHAPTERS.length) playSong('final'); else playSong('boss', BOSS_KEY[snap.cp - 1] || 0);
+  } else if (ty === 'combat' || ty === 'elite') playSong('ch' + snap.cp);
+  else playSong('event');
 }
 
 // ---------- 主迴圈 ----------
@@ -506,11 +535,18 @@ function frame(t) {
     handleNav(myId, pad(0) ? ['kbm', 'pad0'] : ['kbm']);
   }
   updateFx(dt);
+  updateMusic();
+  if (KEYART) { drawKeyArt(ctx, cv.width, cv.height, t / 1000); return; }
   if (inGame && snap && map) render(dt);
-  else { ctx.fillStyle = '#0b0a14'; ctx.fillRect(0, 0, cv.width, cv.height); }
+  else {
+    ctx.fillStyle = '#0b0a14'; ctx.fillRect(0, 0, cv.width, cv.height);
+    if (!$('menu').classList.contains('hidden')) { const tc = $('title'), r = tc.getBoundingClientRect(); const w = Math.round(r.width * DPR), h = Math.round(r.height * DPR); if (tc.width !== w || tc.height !== h) { tc.width = w; tc.height = h; } drawKeyArt(tc.getContext('2d'), w, h, t / 1000); }
+  }
 }
+const KEYART = new URLSearchParams(location.search).has('keyart');
+if (KEYART) $('ui').classList.add('hidden');
 requestAnimationFrame(frame);
-window.__abyss = { get local() { return local; }, save }; // 除錯用
+window.__abyss = { get local() { return local; }, save, music: () => ({ song: currentSong(), level: musicLevel() }), musicTap, playSong, get ac() { return AC; } }; // 除錯用
 
 // ---------- 繪製 ----------
 const pcirc = (x, y, r, c) => { b.fillStyle = c; x = Math.round(x); y = Math.round(y); b.fillRect(x - r, y - r + 1, r * 2, r * 2 - 2); b.fillRect(x - r + 1, y - r, r * 2 - 2, r * 2); };
@@ -565,7 +601,23 @@ function render(dt) {
     if (z.k === 'fire') { for (let i = 0; i < 3; i++) { const a = now * 9 + i * 2.1 + z.x; b.fillStyle = i % 2 ? '#ff8a2a' : '#ffd07a'; b.fillRect(x + Math.round(Math.cos(a) * z.r * 0.6), y + Math.round(Math.sin(a * 1.3) * z.r * 0.3) - (i * 2), 2, 3); } }
     else if (z.k === 'poison') { b.fillStyle = 'rgba(140,230,70,0.22)'; b.beginPath(); b.arc(x, y, z.r, 0, 7); b.fill(); }
     else if (z.k === 'pool') { b.fillStyle = 'rgba(120,200,60,0.28)'; b.beginPath(); b.ellipse(x, y, z.r, z.r * 0.6, 0, 0, 7); b.fill(); if (Math.random() < 0.1) burst(z.x + (Math.random() - 0.5) * z.r, z.y, 1, '#b0ff7a', 10, 0.5); }
-    else if (z.k === 'met') {
+    else if (z.k === 'lava') {
+      b.fillStyle = 'rgba(255,90,20,0.35)'; b.beginPath(); b.ellipse(x, y, z.r, z.r * 0.65, 0, 0, 7); b.fill();
+      b.fillStyle = 'rgba(255,200,80,0.45)'; b.beginPath(); b.ellipse(x, y, z.r * 0.55, z.r * 0.35, 0, 0, 7); b.fill();
+      if (Math.random() < 0.15) burst(z.x + (Math.random() - 0.5) * z.r, z.y, 1, '#ffb04a', 15, 0.5);
+    } else if (z.k === 'warm') {
+      b.strokeStyle = z.on ? 'rgba(255,190,90,0.9)' : 'rgba(255,190,90,0.35)'; b.lineWidth = 1; b.beginPath(); b.arc(x, y, z.r, 0, 7); b.stroke();
+      if (z.on) { b.fillStyle = 'rgba(255,160,60,0.12)'; b.beginPath(); b.arc(x, y, z.r, 0, 7); b.fill(); }
+      b.fillStyle = '#3a3040'; b.fillRect(x - 5, y - 2, 10, 6); b.fillStyle = '#5a5070'; b.fillRect(x - 6, y - 4, 12, 2);
+      b.fillStyle = Math.sin(now * 18) > 0 ? '#ffd07a' : '#ff8a2a'; b.fillRect(x - 3, y - 9, 6, 5); b.fillStyle = '#fff0a0'; b.fillRect(x - 1, y - 8, 2, 3);
+    } else if (z.k === 'safe') {
+      b.fillStyle = 'rgba(90,200,255,0.25)'; b.beginPath(); b.arc(x, y, z.r, 0, 7); b.fill();
+      b.strokeStyle = `rgba(150,230,255,${0.6 + 0.4 * Math.sin(now * 12)})`; b.lineWidth = 2; b.beginPath(); b.arc(x, y, z.r, 0, 7); b.stroke();
+    } else if (z.k === 'hole') {
+      for (let i = 0; i < 4; i++) { b.fillStyle = `rgba(${40 + i * 30},0,${80 + i * 30},${0.5 - i * 0.1})`; b.beginPath(); b.arc(x, y, 34 - i * 7, 0, 7); b.fill(); }
+      b.fillStyle = '#000'; b.beginPath(); b.arc(x, y, 9, 0, 7); b.fill();
+      for (let i = 0; i < 10; i++) { const a = now * 4 + i * 0.63, rr = 12 + ((now * 30 + i * 9) % 40); b.fillStyle = '#c08cff'; b.fillRect(Math.round(x + Math.cos(a) * rr), Math.round(y + Math.sin(a) * rr), 1, 1); }
+    } else if (z.k === 'met') {
       b.strokeStyle = 'rgba(255,140,40,0.8)'; b.lineWidth = 1; b.beginPath(); b.arc(x, y, z.r, 0, 7); b.stroke();
       const my = y - (1 - z.p) * 90; pcirc(x + (1 - z.p) * 20, my, 4, '#ff6a1a'); pcirc(x + (1 - z.p) * 20, my, 2, '#ffe08a');
     }
@@ -656,6 +708,16 @@ function render(dt) {
   }
   for (const p of fx.parts) { b.fillStyle = p.c; b.fillRect(Math.round(p.x - ox), Math.round(p.y - oy), p.s, p.s); }
 
+  if (s.mk) {
+    const p = s.ps.find(o => o.i === s.mk.i);
+    if (p) {
+      const q = ip('p', p), x = Math.round(q.x - ox), y = Math.round(q.y - oy);
+      b.strokeStyle = `rgba(95,242,255,${0.5 + 0.4 * Math.sin(now * 14)})`; b.lineWidth = 1; b.beginPath(); b.arc(x, y, 56, 0, 7); b.stroke();
+      b.fillStyle = 'rgba(95,242,255,0.08)'; b.beginPath(); b.arc(x, y, 56, 0, 7); b.fill();
+      b.fillStyle = '#5ff2ff'; b.fillRect(x - 3, y - 34, 6, 5); b.fillStyle = '#16121f'; b.fillRect(x - 2, y - 33, 1, 2); b.fillRect(x + 1, y - 33, 1, 2); b.fillStyle = '#5ff2ff'; b.fillRect(x - 2, y - 29, 4, 2);
+    }
+  }
+
   // 光影
   lx.globalCompositeOperation = 'source-over'; lx.clearRect(0, 0, VW, VH);
   lx.fillStyle = th.light; lx.fillRect(0, 0, VW, VH);
@@ -667,6 +729,7 @@ function render(dt) {
   lx.globalCompositeOperation = 'source-over';
   b.drawImage(light, 0, 0);
 
+  if (s.ts) { b.globalCompositeOperation = 'saturation'; b.fillStyle = 'hsl(0,0%,50%)'; b.fillRect(0, 0, VW, VH); b.globalCompositeOperation = 'source-over'; b.fillStyle = 'rgba(60,40,120,0.18)'; b.fillRect(0, 0, VW, VH); }
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(buf, 0, 0, VW * SCALE, VH * SCALE);
   drawHUD(s, now);
@@ -764,16 +827,36 @@ function drawPlayer(p, x, y, now, tm) {
   }
 }
 
+const shadowCache = new Map();
+function shadowTint(img) {
+  if (shadowCache.has(img)) return shadowCache.get(img);
+  const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+  const x = c.getContext('2d'); x.drawImage(img, 0, 0); x.globalCompositeOperation = 'source-atop';
+  x.fillStyle = 'rgba(110,50,190,0.82)'; x.fillRect(0, 0, c.width, c.height);
+  shadowCache.set(img, c);
+  return c;
+}
 function drawEnemy(e, x, y, now) {
   const B = BOSSES[e.t], D = B || ENEMIES[e.t];
   if (!onScreen(x, y, 60)) return;
+  if (e.t === 'shadowClone') {
+    const set = playerSprite(e.c || 'knight', 'default')[Math.floor(now * 8) % 2 + 1];
+    shadow(x, y + 4, 7);
+    b.save(); b.translate(Math.round(x), Math.round(y)); if (Math.cos(e.a) < 0) b.scale(-1, 1);
+    b.drawImage(e.fl ? set.w : shadowTint(set.n), -8, -15);
+    b.restore();
+    b.fillStyle = `rgba(160,80,255,${0.5 + 0.3 * Math.sin(now * 10)})`; b.fillRect(Math.round(x) - 2, Math.round(y) - 11, 1, 1); b.fillRect(Math.round(x) + 1, Math.round(y) - 11, 1, 1);
+    if (Math.random() < 0.2) burst(e.x + (Math.random() - 0.5) * 8, e.y - 8, 1, '#7a4ab0', 15, 0.4);
+    if (e.hp < e.mh) { b.fillStyle = '#1a1426'; b.fillRect(Math.round(x) - 8, Math.round(y) - 20, 16, 3); b.fillStyle = '#b07cff'; b.fillRect(Math.round(x) - 7, Math.round(y) - 19, Math.ceil(14 * e.hp / e.mh), 1); }
+    return;
+  }
   const S = enemySprite(e.t);
   if (e.un) {
     b.fillStyle = '#3a2a1a'; b.beginPath(); b.ellipse(Math.round(x), Math.round(y + 3), 7, 3, 0, 0, 7); b.fill();
     if (Math.random() < 0.2) burst(e.x + (Math.random() - 0.5) * 10, e.y + 2, 1, '#6a5030', 20, 0.3);
     return;
   }
-  let img = e.fl && (!B || Math.floor(now * 30) % 3 === 0) ? S.w : e.fz ? S.i : S.n;
+  let img = e.pt ? S.g : e.fl && (!B || Math.floor(now * 30) % 3 === 0) ? S.w : e.fz ? S.i : S.n;
   if (e.st === 'fuse' && Math.floor(now * 16) % 2) img = S.w;
   if (B && !e.fl && !e.fz && e.st === 'wind' && Math.floor(now * 16) % 2) img = S.r;
   const sc = (B ? 2 : 1) * (e.sc || 1);
@@ -795,6 +878,10 @@ function drawEnemy(e, x, y, now) {
   b.globalAlpha = 1;
   if (e.se & 1 && Math.random() < 0.35) burst(e.x + (Math.random() - 0.5) * w * 0.6, e.y - h * 0.4, 1, Math.random() < 0.5 ? '#ff8a2a' : '#ffd07a', 25, 0.4);
   if (e.se & 2 && Math.random() < 0.15) burst(e.x + (Math.random() - 0.5) * w * 0.6, e.y - h * 0.3, 1, '#9be04a', 15, 0.5);
+  if (e.im && B) {
+    b.strokeStyle = `rgba(255,220,120,${0.5 + 0.3 * Math.sin(now * 8)})`; b.lineWidth = 1;
+    b.beginPath(); b.ellipse(Math.round(x), Math.round(ay + h / 2), w * 0.55, h * 0.55, 0, 0, 7); b.stroke();
+  }
   if (e.fc != null) {
     b.strokeStyle = '#c8d4f0'; b.lineWidth = 2; b.beginPath(); b.arc(Math.round(x), Math.round(y - 4), e.sc * 10, e.fc - 0.8, e.fc + 0.8); b.stroke();
   }
@@ -945,14 +1032,24 @@ function drawHUD(s, now) {
   txt(`金幣 ${s.g}`, W / 2, 56 * U, 12 * U, '#ffe9a0', 'center');
 
   // 頭目血條
-  if (s.bo) {
-    const bw = Math.min(W * 0.6, 640 * U), bx = (W - bw) / 2, by = H - 52 * U;
-    txt(s.bo.n + (s.bo.rg ? '（狂暴）' : ''), W / 2, by - 12 * U, 14 * U, s.bo.rg ? '#ff6b6b' : '#fff', 'center', 900);
-    ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(bx - 3 * U, by - 3 * U, bw + 6 * U, 26 * U);
-    bar(bx, by, bw, 12 * U, s.bo.hp / s.bo.mh, '#c8202f', '#3a1018');
-    bar(bx, by + 15 * U, bw, 5 * U, s.bo.sg, s.bo.st ? '#ffffff' : '#ffd34d', '#3a3010');
-    txt(s.bo.st ? '破綻！傷害 ×1.5' : '硬直值', bx + bw + 8 * U, by + 17 * U, 9 * U, '#ffd34d', 'left', 600);
+  if (s.bs && s.bs.length) {
+    const n = s.bs.length, gap = 16 * U;
+    const bw = Math.min((W * 0.62 - gap * (n - 1)) / n, 640 * U);
+    s.bs.forEach((bo, i) => {
+      const bx = W / 2 - (bw * n + gap * (n - 1)) / 2 + i * (bw + gap), by = H - (bo.gg != null ? 62 : 52) * U;
+      txt(bo.n + (bo.rg ? '（狂暴）' : ''), bx, by - 13 * U, 14 * U, bo.rg ? '#ff6b6b' : '#fff', 'left', 900);
+      txt(`${bo.hp} / ${bo.mh}（${Math.ceil(bo.hp / bo.mh * 100)}%）`, bx + bw, by - 13 * U, 12 * U, '#ffd0d0', 'right', 800);
+      ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(bx - 3 * U, by - 3 * U, bw + 6 * U, (bo.gg != null ? 36 : 26) * U);
+      bar(bx, by, bw, 12 * U, bo.hp / bo.mh, bo.im === 1 ? '#7a7a90' : '#c8202f', '#3a1018');
+      if (bo.im) { ctx.strokeStyle = bo.im === 1 ? '#c0c0d0' : '#ffd34d'; ctx.lineWidth = 2 * U; ctx.strokeRect(bx - 1, by - 1, bw + 2, 12 * U + 2); }
+      bar(bx, by + 15 * U, bw, 5 * U, bo.sg, bo.st ? '#ffffff' : '#ffd34d', '#3a3010');
+      if (bo.gg != null) { bar(bx, by + 24 * U, bw, 6 * U, bo.gg, bo.gg > 0.8 ? '#ff3a1a' : '#ff9a3a', '#3a1a08'); }
+      const status = bo.st ? '破綻！傷害 ×1.5' : bo.ms || '硬直值';
+      txt(status, bx, by + (bo.gg != null ? 42 : 32) * U, 11 * U, bo.im === 1 ? '#d0d0e0' : '#ffd34d', 'left', 800);
+    });
   }
+  if (s.mk) { const p = s.ps.find(o => o.i === s.mk.i); if (p) { const sc = w2s(p.x, p.y); txt(`死亡印記 ${s.mk.t.toFixed(1)}`, sc.x, sc.y - 36 * SCALE, 13 * U, '#5ff2ff', 'center', 900); } }
+  if (s.ts) txt('時 間 停 止', W / 2, H * 0.32, 30 * U, '#e0d0ff', 'center', 900);
 
   // 訊息
   fx.banners.forEach((bn, i) => {
@@ -1071,4 +1168,4 @@ function drawOver(s) {
   txt(mode === 'local' ? '按 Enter 再次挑戰 · Esc 返回（可進入營地）' : '即將返回大廳…', W / 2, H * 0.32 + 146 * U, 14 * U, '#ffd34d', 'center');
 }
 
-show('menu');
+if (!KEYART) show('menu');

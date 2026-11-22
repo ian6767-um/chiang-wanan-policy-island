@@ -1,13 +1,17 @@
 // 無頭模擬測試：4 名玩家自動戰鬥、選增幅、走門，確認整個流程不會丟出例外
 import { Game } from '../public/sim.js';
-import { TREE } from '../public/data.js';
+import { TREE, ENEMIES, BOSSES, CHAPTERS } from '../public/data.js';
 const maxTree = Object.fromEntries(TREE.map(n => [n.id, n.max]));
 const g = new Game({});
 ['knight', 'ranger', 'mage', 'cleric'].forEach((c, i) => g.addPlayer(i + 1, 'P' + (i + 1), c, { tree: i % 2 ? maxTree : {}, skin: 'default' }));
 g.start();
-const seen = { types: new Set(), enemies: new Set(), chapters: new Set(), resonance: 0, picks: 0 };
+const seen = { types: new Set(), enemies: new Set(), chapters: new Set(), resonance: 0, picks: 0, bosses: new Set(), wrongChapter: new Set() };
+// 依序強制每一章的三隻頭目都出現
+const bossQueue = CHAPTERS.map(c => [...c.bosses]);
+const origEnter = g.enterStage.bind(g);
+g.enterStage = (type, first) => { origEnter(type, first); if (g.stype === 'boss') { const q = bossQueue[g.chapter - 1]; g.bossId = q.length ? q.shift() : g.bossId; } };
 let maxBytes = 0, runs = 0;
-const TICKS = 30 * 60 * 25;
+const TICKS = 30 * 60 * 90;
 for (let t = 0; t < TICKS; t++) {
   for (const p of g.players.values()) {
     if (p.choice) { g.pick(p.id, Math.floor(Math.random() * 3)); seen.picks++; continue; }
@@ -26,10 +30,18 @@ for (let t = 0; t < TICKS; t++) {
   if (g.boss && Math.random() < 0.01) g.boss.hp -= g.boss.maxhp * 0.05;
   g.step(1 / 30);
   seen.types.add(g.stype); seen.chapters.add(g.chapter);
-  for (const e of g.enemies) seen.enemies.add(e.type);
+  for (const e of g.enemies) {
+    seen.enemies.add(e.type);
+    if (e.boss) seen.bosses.add(e.type);
+    const ch = (ENEMIES[e.type] || BOSSES[e.type]).ch;
+    if (ch !== g.chapter) seen.wrongChapter.add(`${e.type}(屬於第${ch}章, 出現在第${g.chapter}章)`);
+  }
   const s = g.snapshot();
   for (const ev of s.ev) if (ev.k === 'res') seen.resonance++;
   maxBytes = Math.max(maxBytes, JSON.stringify(s).length);
-  if (g.state === 'over') { runs++; console.log('run end', g.result); g.start(); }
+  if (g.state === 'over') { runs++; console.log('run end', g.result); if (bossQueue.some(q => q.length)) g.start(); else break; }
 }
+console.log('頭目', [...seen.bosses].join(' '));
+console.log('章節錯誤', [...seen.wrongChapter]);
+if (seen.wrongChapter.size) process.exitCode = 1;
 console.log({ stageTypes: [...seen.types], chapters: [...seen.chapters], enemyTypes: seen.enemies.size, picks: seen.picks, resonance: seen.resonance, maxSnapshotBytes: maxBytes, runs });

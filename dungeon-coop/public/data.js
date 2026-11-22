@@ -174,6 +174,7 @@ export const ENEMIES = {
   // 第二章
   poisonSlime: { n: '劇毒史萊姆', spr: 'slime', pal: P.toxic, ai: 'hop', hp: 42, r: 7, sp: 36, dmg: 11, fx: 'poison', split: { t: 'slimeMini', n: 2 } },
   slimeMini: { n: '小史萊姆', spr: 'slime', pal: P.toxic, ai: 'hop', hp: 12, r: 4, sp: 44, dmg: 6, scale: 0.65 },
+  sporeBat: { n: '孢子蝙蝠', spr: 'bat', pal: { a: '#6a9a3a', A: '#3a5a1a', L: '#a8d870', e: '#e0ff6a' }, ai: 'fly', hp: 22, r: 5, sp: 74, dmg: 9, fx: 'poison' },
   spider: { n: '洞穴蜘蛛', spr: 'spider', pal: { a: '#4a3a2a', A: '#2a1f14', L: '#7a6048', e: '#ff4040' }, ai: 'leap', hp: 36, r: 6, sp: 55, dmg: 12, shot: { k: 'web', n: 1, v: 110, cd: 3, fx: 'slow' } },
   spiderling: { n: '小蜘蛛', spr: 'spider', pal: { a: '#6a8a2a', A: '#3a5014', L: '#a0c050', e: '#ffe14a' }, ai: 'chase', hp: 10, r: 4, sp: 82, dmg: 6, scale: 0.6 },
   flower: { n: '食人花', spr: 'plant', pal: { a: '#e04a8a', A: '#8a1f50', L: '#ff9ac8', b: '#ffd34d', g: '#4aa84a', G: '#2a6a2a' }, ai: 'turret', hp: 50, r: 7, sp: 0, dmg: 9, shot: { k: 'seed', n: 5, spr: 0.3, v: 115, cd: 2.3 } },
@@ -193,7 +194,7 @@ export const ENEMIES = {
   // 第四章
   frostGhost: { n: '冰霜幽魂', spr: 'ghost', pal: { a: '#a8e0ff', A: '#5a9ac8', L: '#ffffff' }, ai: 'kite', phase: 1, hp: 44, r: 6, sp: 46, dmg: 11, alpha: 0.75, shot: { k: 'ice', n: 1, v: 115, cd: 1.8, fx: 'slow' } },
   iceSkel: { n: '寒冰骷髏', spr: 'skel', pal: { w: '#d8f0ff', A: '#8ab0d0', g: '#5ff2ff' }, ai: 'kite', hp: 50, r: 6, sp: 44, dmg: 12, shot: { k: 'ice', n: 3, spr: 0.22, v: 125, cd: 2.2, fx: 'slow' } },
-  necro: { n: '死靈法師', spr: 'robe', pal: { a: '#2a3a4a', A: '#141f2a', L: '#4a6a80', g: '#5ff2ff', s: '#d8d0c0' }, ai: 'summoner', hp: 70, r: 6, sp: 34, dmg: 12, sum: ['skelWarrior', 'iceSkel'] },
+  necro: { n: '死靈法師', spr: 'robe', pal: { a: '#2a3a4a', A: '#141f2a', L: '#4a6a80', g: '#5ff2ff', s: '#d8d0c0' }, ai: 'summoner', hp: 70, r: 6, sp: 34, dmg: 12, sum: ['iceSkel', 'frostGhost'] },
   iceCrystal: { n: '冰晶塔', spr: 'crystal', pal: { ...P.ice, m: '#5a6a80', M: '#2a3448' }, ai: 'turret', hp: 80, r: 7, sp: 0, dmg: 11, shot: { k: 'ice', n: 10, ring: 1, v: 80, cd: 2.6, fx: 'slow' } },
   frostBeetle: { n: '冰霜甲蟲', spr: 'beetle', pal: { a: '#7ac8f0', A: '#3a7aa8', L: '#d8f4ff' }, ai: 'chase', hp: 140, r: 8, sp: 30, dmg: 15, armor: 0.3, fx: 'slow' },
   yeti: { n: '雪怪', spr: 'brute', pal: { a: '#e8f2ff', A: '#a8bcd8', L: '#ffffff', b: '#8ab0d0', B: '#4a6a90', r: '#3a8ab8', w: '#5ff2ff' }, ai: 'charge', hp: 170, r: 9, sp: 34, dmg: 22, scale: 1.15 },
@@ -209,26 +210,57 @@ export const ENEMIES = {
   voidWorm: { n: '虛空蠕蟲', spr: 'worm', pal: { a: '#8a5ac8', A: '#4a2a6e', L: '#c8a0ff', b: '#1f0f38', B: '#0c0618' }, ai: 'burrow', hp: 110, r: 7, sp: 80, dmg: 16, shot: { k: 'dark', n: 14, ring: 1, v: 95 } },
   chaosWisp: { n: '混沌精靈', spr: 'wisp', pal: P.void, ai: 'orbit', hp: 60, r: 6, sp: 75, dmg: 12, shot: { k: 'dark', n: 3, spr: 0.25, v: 135, cd: 1.6 } },
   phantom: { n: '魅影', spr: 'ghost', pal: { a: '#c08cff', A: '#6a3ab0', L: '#f0e0ff' }, ai: 'kite', phase: 1, hp: 60, r: 6, sp: 52, dmg: 13, alpha: 0.7, shot: { k: 'dark', n: 2, spr: 0.12, v: 140, cd: 1.6 } },
-  // 特殊
-  mimic: { n: '寶箱怪', spr: 'mimic', pal: { b: '#9a5b2a', B: '#5a3014' }, ai: 'mimic', hp: 160, r: 8, sp: 76, dmg: 20 },
+  // 寶箱怪（每章不同）
+  mimic1: { n: '石箱怪', spr: 'mimic', pal: { b: '#8a7a6a', B: '#4a4038' }, ai: 'mimic', hp: 160, r: 8, sp: 76, dmg: 20, shot: { k: 'rock', n: 10, ring: 1, v: 110 } },
+  mimic2: { n: '苔箱怪', spr: 'mimic', pal: { b: '#4a7a3a', B: '#2a4a1a' }, ai: 'mimic', hp: 160, r: 8, sp: 76, dmg: 20, shot: { k: 'spore', n: 10, ring: 1, v: 100, fx: 'poison' } },
+  mimic3: { n: '熔箱怪', spr: 'mimic', pal: { b: '#a8401a', B: '#5a1a08', y: '#ffe14a' }, ai: 'mimic', hp: 160, r: 8, sp: 76, dmg: 20, shot: { k: 'efire', n: 10, ring: 1, v: 110, fx: 'burn' } },
+  mimic4: { n: '霜箱怪', spr: 'mimic', pal: { b: '#5a8ab0', B: '#2a4a6a', y: '#e8f8ff' }, ai: 'mimic', hp: 160, r: 8, sp: 76, dmg: 20, shot: { k: 'ice', n: 10, ring: 1, v: 100, fx: 'slow' } },
+  mimic5: { n: '虛空箱怪', spr: 'mimic', pal: { b: '#4a2a6e', B: '#1f0f38', y: '#ff4af0' }, ai: 'mimic', hp: 160, r: 8, sp: 76, dmg: 20, shot: { k: 'dark', n: 10, ring: 1, v: 110 } },
+  // 頭目機制用的單位
+  banner: { n: '骷髏戰旗', spr: 'banner', pal: { y: '#c8202f', r: '#ffd34d' }, ai: 'static', hp: 150, r: 8, sp: 0, dmg: 0, noDrop: 1, scale: 1.8 },
+  eggSac: { n: '蛛卵', spr: 'egg', pal: { a: '#d8e8c0', A: '#8aa070', L: '#ffffff', b: '#7ac04a' }, ai: 'static', hp: 55, r: 7, sp: 0, dmg: 0, noDrop: 1, scale: 1.4 },
+  vineRoot: { n: '荊棘根', spr: 'root', pal: { a: '#4a8a3a', A: '#2a5a1a', L: '#8ad070' }, ai: 'turret', hp: 130, r: 9, sp: 0, dmg: 10, noDrop: 1, scale: 1.8, shot: { k: 'seed', n: 3, spr: 0.3, v: 105, cd: 3.5 } },
+  shroomClone: { n: '蘑菇王分身', spr: 'shroomKing', ai: 'caster', hp: 110, r: 12, sp: 22, dmg: 12, scale: 2, noDrop: 1, shot: { k: 'spore', n: 8, ring: 1, v: 75, cd: 3, fx: 'poison' } },
+  phylactery: { n: '巫妖命匣', spr: 'phyl', pal: { g: '#5ff2ff', L: '#e8f8ff', m: '#5a6a80', M: '#2a3448' }, ai: 'turret', hp: 240, r: 9, sp: 0, dmg: 10, noDrop: 1, scale: 1.8, shot: { k: 'ice', n: 8, ring: 1, v: 70, cd: 3.5, fx: 'slow' } },
+  shadowClone: { n: '暗影複製體', spr: 'shadow', ai: 'kite', hp: 90, r: 6, sp: 62, dmg: 14, noDrop: 1, shot: { k: 'dark', n: 1, v: 150, cd: 1.2 } },
 };
 
 export const BOSSES = {
-  golem: { n: '巨岩魔像', spr: 'golem', hp: 1100, r: 15, sp: 28, dmg: 22, atks: ['slam', 'ring', 'charge', 'slam'] },
-  queen: { n: '劇毒母蛛', spr: 'queen', hp: 1250, r: 15, sp: 42, dmg: 22, atks: ['leap', 'web', 'brood', 'poisonRain', 'leap'] },
-  dragon: { n: '熔岩飛龍', spr: 'dragon', hp: 1350, r: 14, sp: 38, dmg: 24, atks: ['breath', 'spread', 'meteor', 'charge'] },
-  lich: { n: '冰霜巫妖', spr: 'lich', hp: 1450, r: 12, sp: 30, dmg: 24, atks: ['spiral', 'summon', 'blink', 'lasers', 'frostNova'] },
-  voidlord: { n: '虛空主宰', spr: 'voidlord', hp: 1900, r: 15, sp: 34, dmg: 26, atks: ['sweep', 'hell', 'summonEyes', 'blink', 'lasers', 'voidZones'] },
+  // 第一章
+  golem: { n: '巨岩魔像', spr: 'golem', ch: 1, hp: 1100, r: 15, sp: 28, dmg: 22, atks: ['slam', 'ring', 'charge', 'slam'], mech: 'armor', hint: '岩甲：傷害 -60%，打出破綻可擊碎岩甲；引誘牠撞牆會暈眩' },
+  general: { n: '骷髏將軍', spr: 'general', ch: 1, hp: 1000, r: 13, sp: 36, dmg: 22, atks: ['charge', 'summon', 'ring', 'slam'], sum: ['skelWarrior', 'skelArcher'], mech: 'banner', hint: '戰旗：場上有戰旗時將軍受到的傷害 -80%，先摧毀戰旗！' },
+  gargoyle: { n: '赤眼石像鬼', spr: 'gargoyle', ch: 1, hp: 620, r: 12, sp: 46, dmg: 20, atks: ['charge', 'spread', 'slam'], mech: 'twin', hint: '雙子：一隻倒下會石化 8 秒後復活，必須在時限內擊倒另一隻' },
+  gargoyle2: { n: '蒼眼石像鬼', spr: 'gargoyle', ch: 1, hp: 620, r: 12, sp: 46, dmg: 20, atks: ['charge', 'ring', 'slam'], mech: 'twin', twinOnly: 1 },
+  // 第二章
+  queen: { n: '劇毒母蛛', spr: 'queen', ch: 2, hp: 1250, r: 15, sp: 42, dmg: 22, atks: ['leap', 'web', 'brood', 'poisonRain', 'leap'], mech: 'eggs', hint: '蛛卵：6 秒內不打破就會孵出小蜘蛛' },
+  flowerKing: { n: '巨型食人花', spr: 'plant', ch: 2, hp: 1150, r: 15, sp: 0, dmg: 22, scale: 1.3, atks: ['seedStorm', 'vineLines', 'pollen', 'summon'], sum: ['flower'], mech: 'roots', hint: '荊棘根：根部存活時食人花無敵，摧毀 4 條根讓它枯萎（傷害 ×1.5）' },
+  shroomKing: { n: '蘑菇王', spr: 'shroomKing', ch: 2, hp: 1150, r: 14, sp: 32, dmg: 20, atks: ['sporeRing', 'pollen', 'leap', 'summon'], sum: ['poisonSlime'], mech: 'clones', hint: '分身：血量 70%、40% 時召喚分身並與分身換位' },
+  // 第三章
+  dragon: { n: '熔岩飛龍', spr: 'dragon', ch: 3, hp: 1350, r: 14, sp: 38, dmg: 24, atks: ['breath', 'spread', 'meteor', 'charge'], mech: 'flight', hint: '飛空：飛上天時無法被攻擊，躲開隕石，牠落地時集中火力' },
+  demon: { n: '烈焰惡魔', spr: 'demon', ch: 3, hp: 1400, r: 15, sp: 40, dmg: 24, atks: ['charge', 'fireWave', 'whip', 'summon'], sum: ['imp', 'fireBat'], mech: 'lava', hint: '熔岩：每次攻擊都會在地上留下熔岩，別被逼進角落' },
+  core: { n: '爆炎核心', spr: 'core', ch: 3, hp: 1350, r: 14, sp: 22, dmg: 22, atks: ['ring', 'spread', 'sweep', 'summon'], sum: ['fireWisp'], mech: 'heat', hint: '過熱：熱度滿了會全場爆炸。打出破綻可散熱，或躲進藍色冷卻區' },
+  // 第四章
+  lich: { n: '冰霜巫妖', spr: 'lich', ch: 4, hp: 1400, r: 12, sp: 30, dmg: 24, atks: ['spiral', 'summon', 'blink', 'lasers', 'frostNova'], sum: ['iceSkel', 'frostGhost'], mech: 'phylactery', hint: '命匣：命匣存在時巫妖不會死亡，先摧毀命匣！' },
+  icequeen: { n: '冰霜女王', spr: 'icequeen', ch: 4, hp: 1450, r: 13, sp: 32, dmg: 24, atks: ['frostNova', 'icicles', 'spiral', 'summon'], sum: ['iceWisp', 'frostGhost'], mech: 'blizzard', hint: '暴風雪：暴風雪來臨時躲到火盆旁取暖' },
+  deathknight: { n: '亡魂騎士', spr: 'armor', ch: 4, hp: 1500, r: 13, sp: 42, dmg: 24, scale: 1.1, atks: ['charge', 'slam', 'lasers', 'summon'], sum: ['iceSkel', 'cryptSpider'], mech: 'mark', hint: '死亡印記：被標記的獵人要和隊友站在一起，分擔爆炸傷害' },
+  // 第五章
+  voidlord: { n: '虛空主宰', spr: 'voidlord', ch: 5, hp: 1900, r: 15, sp: 34, dmg: 26, atks: ['sweep', 'hell', 'summonEyes', 'blink', 'lasers', 'voidZones'], mech: 'blackhole', hint: '黑洞：黑洞會把人吸過去，往外跑！' },
+  witch: { n: '時之魔女', spr: 'witch', ch: 5, hp: 1800, r: 13, sp: 34, dmg: 24, atks: ['spiral', 'blink', 'clock', 'summon'], sum: ['assassin', 'chaosWisp'], mech: 'timestop', hint: '時間停止：時間暫停時子彈會停在你身邊，恢復後同時射出——立刻翻滾！' },
+  heart: { n: '深淵之心', spr: 'heart', ch: 5, hp: 2000, r: 15, sp: 20, dmg: 26, atks: ['pulse', 'hell', 'voidZones', 'tentacles'], mech: 'shadows', hint: '暗影複製：血量 75%、50%、25% 時召喚每位獵人的暗影分身' },
 };
 
 export const CHAPTERS = [
-  { name: '石之迴廊', boss: 'golem', pool: ['slime', 'bat', 'skelArcher', 'skelWarrior', 'bomber', 'orc', 'shroom', 'rockling'] },
-  { name: '苔蘚洞窟', boss: 'queen', pool: ['poisonSlime', 'spider', 'ghost', 'flower', 'bat', 'beetle', 'goblin', 'mossBrute'] },
-  { name: '熔岩深淵', boss: 'dragon', pool: ['lavaSlime', 'fireBat', 'imp', 'magmaBomb', 'fireWisp', 'lavaWorm', 'obsidian', 'fireEye'] },
-  { name: '冰封墓穴', boss: 'lich', pool: ['frostGhost', 'iceSkel', 'cryptSpider', 'frostBeetle', 'iceWisp', 'necro', 'iceCrystal', 'yeti'] },
-  { name: '虛空王座', boss: 'voidlord', pool: ['voidSlime', 'assassin', 'phantom', 'chaosWisp', 'voidEye', 'voidKnight', 'cultist', 'voidWorm'] },
+  { name: '石之迴廊', bosses: ['golem', 'general', 'gargoyle'], pool: ['slime', 'bat', 'skelArcher', 'skelWarrior', 'bomber', 'orc', 'shroom', 'rockling'] },
+  { name: '苔蘚洞窟', bosses: ['queen', 'flowerKing', 'shroomKing'], pool: ['poisonSlime', 'spider', 'ghost', 'flower', 'sporeBat', 'beetle', 'goblin', 'mossBrute'] },
+  { name: '熔岩深淵', bosses: ['dragon', 'demon', 'core'], pool: ['lavaSlime', 'fireBat', 'imp', 'magmaBomb', 'fireWisp', 'lavaWorm', 'obsidian', 'fireEye'] },
+  { name: '冰封墓穴', bosses: ['lich', 'icequeen', 'deathknight'], pool: ['frostGhost', 'iceSkel', 'cryptSpider', 'frostBeetle', 'iceWisp', 'necro', 'iceCrystal', 'yeti'] },
+  { name: '虛空王座', bosses: ['voidlord', 'witch', 'heart'], pool: ['voidSlime', 'assassin', 'phantom', 'chaosWisp', 'voidEye', 'voidKnight', 'cultist', 'voidWorm'] },
 ];
 export const STAGES_PER_CHAPTER = 10;
+// 每隻小怪所屬的章節（小怪只會出現在自己的章節）
+const EXTRA = { slimeMini: 2, spiderling: 2, voidSlimeMini: 5, banner: 1, eggSac: 2, vineRoot: 2, shroomClone: 2, phylactery: 4, shadowClone: 5 };
+CHAPTERS.forEach((c, i) => { for (const t of c.pool) ENEMIES[t].ch = i + 1; ENEMIES['mimic' + (i + 1)].ch = i + 1; });
+for (const [t, c] of Object.entries(EXTRA)) ENEMIES[t].ch = c;
 
 export const DOORS = {
   combat: { name: '戰鬥', color: '#ff6a6a', icon: '戰' },
