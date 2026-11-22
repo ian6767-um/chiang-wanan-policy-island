@@ -179,6 +179,8 @@ wss.on('connection', ws => {
         if (m.cmd === 'god') for (const p of r.game.players.values()) { p.maxhp = p.hp = 99999; }
         if (m.cmd === 'ult') for (const p of r.game.players.values()) p.ultE = 300;
         if (m.cmd === 'down') { const p = r.game.players.get(ws.id); if (p) { p.hp = 0; r.game.goDown(p); } }
+        if (m.cmd === 'cls') r.game.setClass(ws.id, m.c);
+        if (m.cmd === 'skin') r.game.setSkin(ws.id, m.c, m.s);
         if (m.cmd === 'boons') for (const p of r.game.players.values()) p.cq.push('normal');
         break;
       case 'pick': if (r) r.game.pick(ws.id, m.i | 0); break;

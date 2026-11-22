@@ -1,0 +1,126 @@
+{
+ "blade_styx": [
+  75,
+  50
+ ],
+ "blade_thunder": [
+  80,
+  50
+ ],
+ "blade_sun": [
+  100,
+  50
+ ],
+ "blade_bone": [
+  79,
+  50
+ ],
+ "star_olympus": [
+  67,
+  50
+ ],
+ "star_bloodmoon": [
+  41,
+  50
+ ],
+ "star_frost": [
+  66,
+  50
+ ],
+ "star_necro": [
+  81,
+  50
+ ],
+ "aegis_sparta": [
+  58,
+  50
+ ],
+ "aegis_magma": [
+  63,
+  50
+ ],
+ "aegis_templar": [
+  68,
+  50
+ ],
+ "aegis_tide": [
+  48,
+  50
+ ],
+ "hunter_moon": [
+  56,
+  50
+ ],
+ "hunter_phoenix": [
+  71,
+  50
+ ],
+ "hunter_cyber": [
+  70,
+  50
+ ],
+ "hunter_dune": [
+  73,
+  50
+ ],
+ "golem": [
+  100,
+  94
+ ],
+ "general": [
+  113,
+  94
+ ],
+ "gargoyle": [
+  67,
+  94
+ ],
+ "gargoyle2": [
+  67,
+  94
+ ],
+ "queen": [
+  135,
+  94
+ ],
+ "icequeen": [
+  58,
+  94
+ ],
+ "dragon": [
+  127,
+  94
+ ],
+ "flowerKing": [
+  124,
+  94
+ ],
+ "shroomKing": [
+  106,
+  94
+ ],
+ "demon": [
+  95,
+  94
+ ],
+ "deathknight": [
+  90,
+  94
+ ],
+ "lich": [
+  71,
+  94
+ ],
+ "voidlord": [
+  95,
+  94
+ ],
+ "witch": [
+  92,
+  94
+ ],
+ "heart": [
+  167,
+  94
+ ]
+}

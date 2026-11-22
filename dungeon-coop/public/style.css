@@ -159,6 +159,10 @@ body.mobile .action-bar, body.mobile .pc-only { display: none; }
 .card p { margin: 0; padding: 0 10px; line-height: 1.55; font-size: var(--fs-s); overflow-wrap: anywhere; }
 .card .res { color: var(--c); font-weight: 800; }
 .card .res.hit { color: #7dff9a; }
+.rotate-hint { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); width: min(94vw, 460px); pointer-events: auto;
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; text-align: center; background: rgba(18, 15, 32, .94); border: 2px solid var(--gold);
+  border-radius: 10px; padding: 10px; font-size: var(--fs-s); z-index: 5; }
+.rotate-hint span { flex: 1 1 100%; }
 .toast { position: fixed; left: 50%; bottom: calc(20px + var(--safe-b)); transform: translateX(-50%); background: #2a2050; border: 2px solid var(--gold); border-radius: 8px;
   padding: .6em 1em; max-width: min(92vw, 520px); text-align: center; z-index: 20; opacity: 0; transition: opacity .25s; pointer-events: none; }
 .toast.on { opacity: 1; }

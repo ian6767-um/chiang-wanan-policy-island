@@ -208,7 +208,7 @@ export function render(s, dt, ip, lead) {
     const p = s.ps.find(o => o.i === a.i); if (!p) continue;
     const art = heroArt(p.c, p.sk);
     b.globalAlpha = (a.t / 0.35) * 0.6 * A(a.o);
-    b.drawImage(art.ghost, Math.round(a.x1 - ox - 32), Math.round(a.y1 - oy - 56));
+    b.drawImage(art.ghost, Math.round(a.x1 - ox + art.ox), Math.round(a.y1 - oy + art.oy));
     b.globalCompositeOperation = 'lighter'; b.strokeStyle = art.pal.trail; b.lineWidth = 2;
     b.beginPath(); b.moveTo(a.x1 - ox, a.y1 - oy - 20); b.lineTo(a.x2 - ox, a.y2 - oy - 20); b.stroke();
     b.globalCompositeOperation = 'source-over'; b.globalAlpha = 1;
@@ -336,7 +336,7 @@ function drawObj(o, x, y, now, s) {
       const c = CLASSES[o.cl], art = heroArt(o.cl, null);
       b.fillStyle = '#0c0a14'; b.fillRect(x - 12, y - 4, 24, 9); b.fillStyle = '#2a2238'; b.fillRect(x - 13, y - 6, 26, 3);
       b.strokeStyle = c.color; b.globalAlpha = 0.6 + 0.3 * Math.sin(now * 3); b.lineWidth = 1; b.beginPath(); b.ellipse(x, y, 16, 6, 0, 0, 7); b.stroke();
-      b.globalAlpha = 0.6; b.drawImage(art.idle[Math.floor(now * 4) % 4], x - 32, y - 66 + Math.round(Math.sin(now * 2) * 2)); b.globalAlpha = 1;
+      b.globalAlpha = 0.65; b.drawImage(art.idle[Math.floor(now * 4) % 4], Math.round(x + art.ox), Math.round(y - 10 + art.oy + Math.sin(now * 2) * 2)); b.globalAlpha = 1;
       break;
     }
     case 'wardrobe':
@@ -374,18 +374,30 @@ function drawPlayer(p, x, y, now, s) {
   const tr = fx.trails.get(p.i);
   if (tr) {
     tr.pts.push([x + V.camO.x, y + V.camO.y]); if (tr.pts.length > 6) tr.pts.shift();
-    tr.pts.forEach(([gx, gy], i) => { b.globalAlpha = (i / tr.pts.length) * 0.5 * A(p.i); b.save(); b.translate(gx - V.camO.x, gy - V.camO.y); b.scale(face, 1); b.drawImage(art.ghost, -32, -56); b.restore(); });
+    tr.pts.forEach(([gx, gy], i) => { b.globalAlpha = (i / tr.pts.length) * 0.5 * A(p.i); b.save(); b.translate(gx - V.camO.x, gy - V.camO.y); b.scale(face, 1); b.drawImage(art.ghost, Math.round(art.ox), Math.round(art.oy)); b.restore(); });
     b.globalAlpha = 1;
   }
   const frame = p.fl ? art.white : p.mv ? art.run[Math.floor(now * 11) % 6] : art.idle[Math.floor(now * 4) % 4];
   const behind = Math.sin(p.a) < -0.35;
   if (p.dg) b.globalAlpha = 0.6;
   if (p.iv && !p.ul && Math.floor(now * 20) % 2) b.globalAlpha = 0.65;
-  if (behind) drawWeapon(p, x, y, face, art, now);
-  b.save(); b.translate(x, y); b.scale(face, 1); b.drawImage(frame, -32, -56); b.restore();
-  if (!behind) drawWeapon(p, x, y, face, art, now);
+  if (art.img) {
+    drawAim(p, x, y, art);
+    // 單張精靈圖：以程式做呼吸、跑步彈跳與傾斜動畫
+    const sl = fx.slashes.find(o => o.i === p.i);
+    const bob = p.mv ? -Math.abs(Math.sin(now * 11)) * 2.5 : 0, breath = p.mv ? 1 : 1 + Math.sin(now * 3) * 0.025;
+    const tilt = (p.mv ? 0.06 : 0) + (sl ? (sl.t / 0.16) * 0.12 : 0) + (p.dg ? 0.25 : 0);
+    b.save(); b.translate(x, Math.round(y + bob)); b.scale(face, 1); b.rotate(tilt); b.scale(p.mv ? 1 + Math.sin(now * 22) * 0.02 : 1, breath);
+    b.drawImage(p.fl ? art.idle[0] : frame, Math.round(art.ox), Math.round(art.oy));
+    if (p.fl) { b.globalAlpha *= 0.5; b.drawImage(art.white, Math.round(art.ox), Math.round(art.oy)); }
+    b.restore();
+  } else {
+    if (behind) drawWeapon(p, x, y, face, art, now);
+    b.save(); b.translate(x, y); b.scale(face, 1); b.drawImage(frame, -32, -56); b.restore();
+    if (!behind) drawWeapon(p, x, y, face, art, now);
+  }
   b.globalAlpha = 1;
-  if (p.se & 1) { b.globalAlpha = 0.3; b.save(); b.translate(x, y); b.scale(face, 1); b.drawImage(art.ghost, -32, -56); b.restore(); b.globalAlpha = 1; }
+  if (p.se & 1) { b.globalAlpha = 0.3; b.save(); b.translate(x, y); b.scale(face, 1); b.drawImage(art.ghost, Math.round(art.ox), Math.round(art.oy)); b.restore(); b.globalAlpha = 1; }
   if (p.br > 0) { b.strokeStyle = 'rgba(255,215,90,0.8)'; b.lineWidth = 1; b.beginPath(); b.ellipse(x, y - 18, 16, 24, 0, 0, 7); b.stroke(); }
   // 遊俠蓄力光圈：縮到最小（金色）時放開
   if (p.chg > 0) {
@@ -408,6 +420,15 @@ function drawPlayer(p, x, y, now, s) {
     const a = s.tm * 3.5 + i * 6.283 / p.ob, bx = x + Math.cos(a) * 26, by = y - 3 + Math.sin(a) * 26;
     b.save(); b.translate(Math.round(bx), Math.round(by)); b.rotate(a + 1.57); b.fillStyle = '#c08cff'; b.fillRect(-1, -4, 2, 8); b.restore();
   }
+}
+// 參考圖模型的武器畫在圖裡：改用腳下的霓虹瞄準箭頭顯示方向
+function drawAim(p, x, y, art) {
+  const a = p.a, r = 15, col = art.pal.trail;
+  b.globalAlpha *= A(p.i) === 1 ? 0.9 : 0.4;
+  b.strokeStyle = col; b.lineWidth = 1; b.beginPath(); b.ellipse(x, y + 2, 13, 5, 0, a - 0.5, a + 0.5); b.stroke();
+  const tx = x + Math.cos(a) * r, ty = y + 2 + Math.sin(a) * r * 0.42;
+  b.fillStyle = col; b.beginPath(); b.moveTo(tx + Math.cos(a) * 4, ty + Math.sin(a) * 2); b.lineTo(tx + Math.cos(a + 2.4) * 3, ty + Math.sin(a + 2.4) * 1.5); b.lineTo(tx + Math.cos(a - 2.4) * 3, ty + Math.sin(a - 2.4) * 1.5); b.fill();
+  b.globalAlpha = p.dg ? 0.6 : 1;
 }
 function drawWeapon(p, x, y, face, art, now) {
   let a = p.a;
@@ -436,7 +457,7 @@ function drawEnemy(e, x, y, now) {
     const art = heroArt(e.c || 'blade', null);
     shadowE(x, y + 3, 8);
     b.save(); b.translate(Math.round(x), Math.round(y)); if (Math.cos(e.a) < 0) b.scale(-1, 1);
-    b.globalAlpha = 0.85; b.drawImage(e.fl ? art.white : shadowTint(art.run[Math.floor(now * 10) % 6]), -32, -56); b.restore(); b.globalAlpha = 1;
+    b.globalAlpha = 0.85; b.drawImage(e.fl ? art.white : shadowTint(art.run[Math.floor(now * 10) % 6]), Math.round(art.ox), Math.round(art.oy)); b.restore(); b.globalAlpha = 1;
     return;
   }
   const S = enemySprite(e.t);
@@ -477,8 +498,11 @@ function drawBoss(e, x, y, now, B) {
   let img = art.frames[Math.floor(now * 2.2) % 2];
   if (e.pt) img = art.stone; else if (e.fl && Math.floor(now * 30) % 3 === 0) img = art.white; else if (e.fz) img = art.ice; else if (e.st === 'wind' && Math.floor(now * 16) % 2) img = art.red;
   const dx = e.st === 'wind' ? Math.round((Math.random() - 0.5) * 4) : 0;
-  shadowE(x, y + 6, Math.max(10, 26 - e.z * 0.2));
-  b.drawImage(img, Math.round(x - 48 + dx), Math.round(y - 88 - e.z));
+  shadowE(x, y + 6, Math.max(10, Math.min(40, art.w * 0.3) - e.z * 0.2));
+  if (art.img) {
+    const breath = 1 + Math.sin(now * 2.4 + e.i) * 0.025, face = Math.cos(e.a) < 0 && !e.st.startsWith('cast') ? -1 : 1;
+    b.save(); b.translate(Math.round(x + dx), Math.round(y - e.z)); b.scale(face, breath); b.drawImage(img, Math.round(art.ox), Math.round(art.oy)); b.restore();
+  } else b.drawImage(img, Math.round(x - 48 + dx), Math.round(y - 88 - e.z));
   if (e.im) { b.strokeStyle = `rgba(255,220,120,${0.5 + 0.3 * Math.sin(now * 8)})`; b.lineWidth = 1; b.beginPath(); b.ellipse(Math.round(x), Math.round(y - 40 - e.z), 40, 46, 0, 0, 7); b.stroke(); }
   if (e.st === 'stun') for (let i = 0; i < 4; i++) { const a = now * 6 + i * 1.57; b.fillStyle = '#ffe14a'; b.fillRect(Math.round(x + Math.cos(a) * 20), Math.round(y - 86 + Math.sin(a) * 4), 3, 3); }
 }

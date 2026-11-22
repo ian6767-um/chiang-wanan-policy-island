@@ -1,0 +1,9 @@
+{
+  "name": "深淵獵團",
+  "short_name": "深淵獵團",
+  "start_url": ".",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#07050c",
+  "theme_color": "#07050c"
+}

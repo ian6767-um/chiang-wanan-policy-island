@@ -23,6 +23,23 @@ npm start          # http://localhost:3000
 
 部署到網路主機（Render、Fly.io、VPS…）時：帳號資料存於 `data/`（可用 `ABYSS_DATA` 指定），權杖簽章金鑰會自動產生在 `data/secret.key`（也可用 `ABYSS_SECRET`）。手機遊玩建議走 HTTPS。
 
+## 角色與頭目模型
+
+角色（16 款造型）與頭目（14 隻，爆炎核心除外）使用 `tools/ref/` 的參考圖切出：
+
+```bash
+pip install opencv-python-headless pillow numpy
+python3 tools/extract_sprites.py          # 輸出到 public/assets/sprites/
+```
+
+腳本用 GrabCut 去背（深色角色另有身體位置提示）、縮成遊戲尺寸（角色 48px、頭目 92px 高）並加上黑色外框。
+換掉 `tools/ref/heroes.jpg`、`bosses.jpg` 或調整腳本裡的裁切框即可更新模型；找不到圖檔時遊戲會自動改用程序化繪製的模型。
+
+## 手機橫向
+
+手機進房（建立／加入）時會自動要求全螢幕並鎖定橫向（Android Chrome 支援；iOS Safari 不支援鎖定，請關閉螢幕方向鎖定後橫放手機）。
+直向時會出現提示，可在設定把「手機螢幕方向」改成「跟隨手機方向」。加入主畫面（PWA）後預設以橫向全螢幕開啟。
+
 ## 操作（自動偵測，也可在設定手動切換）
 
 | 動作 | 電腦 | 手機 |

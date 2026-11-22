@@ -6,7 +6,8 @@ const CLS = Object.keys(CLASSES);
 const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 export function heroCanvas(cls, skin, size = 96) {
   const c = document.createElement('canvas'); c.width = 64; c.height = 64;
-  const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(heroArt(cls, skin).idle[0], 0, 0);
+  const x = c.getContext('2d'), im = heroArt(cls, skin).idle[0]; x.imageSmoothingEnabled = false;
+  const k = Math.min(64 / im.width, 64 / im.height); x.drawImage(im, Math.round((64 - im.width * k) / 2), Math.round(64 - im.height * k), Math.round(im.width * k), Math.round(im.height * k));
   c.style.width = size + 'px'; c.style.height = size + 'px'; c.style.imageRendering = 'pixelated';
   return c;
 }

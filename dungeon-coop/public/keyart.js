@@ -40,8 +40,8 @@ export function drawKeyArt(ctx, W, H, t) {
     b.fillRect(Math.round(px + Math.cos(a) * rr), Math.round(py + Math.sin(a) * rr * 0.9), 1, 1);
   }
   // 頭目剪影
-  const eye = bossArt('voidlord').frames[Math.floor(t * 2) % 2];
-  b.drawImage(eye, px - 48, py - 50 + Math.sin(t) * 2);
+  const eye = bossArt('voidlord');
+  b.drawImage(eye.frames[0], Math.round(px - eye.w / 2), Math.round(py - eye.h / 2 + Math.sin(t) * 2));
   b.drawImage(silhouette(bossArt('dragon').frames[0], '#2a0d2a'), -6, 40 + Math.sin(t * 0.8) * 3);
   b.drawImage(silhouette(bossArt('golem').frames[0], '#1f0d26'), BW - 96, 46);
   b.drawImage(silhouette(bossArt('witch').frames[0], '#24103a'), BW - 120, 20 + Math.sin(t * 1.2) * 2);
@@ -60,9 +60,9 @@ export function drawKeyArt(ctx, W, H, t) {
   for (let i = 0; i < 20; i++) { b.fillStyle = '#231c36'; b.fillRect(i * 16 + (i % 2) * 4, BH - 24 + (i % 3) * 6, 10, 1); }
   // 四位獵人
   ['aegis', 'blade', 'star', 'hunter'].forEach((c, i) => {
-    const art = heroArt(c, null), img = art.idle[Math.floor(t * 4 + i) % 4], x = BW / 2 - 118 + i * 56, y = BH - 86;
-    b.fillStyle = 'rgba(0,0,0,0.5)'; b.beginPath(); b.ellipse(x + 32, BH - 28, 13, 4, 0, 0, 7); b.fill();
-    b.drawImage(img, x, y);
+    const art = heroArt(c, null), img = art.idle[Math.floor(t * 4 + i) % 4], fx = BW / 2 - 86 + i * 57, fy = BH - 30 + Math.round(Math.sin(t * 2 + i) * 1);
+    b.fillStyle = 'rgba(0,0,0,0.5)'; b.beginPath(); b.ellipse(fx, fy + 2, 13, 4, 0, 0, 7); b.fill();
+    b.drawImage(img, Math.round(fx + art.ox), Math.round(fy + art.oy));
   });
   // 餘燼
   for (let i = 0; i < 36; i++) {

@@ -17,7 +17,9 @@ export function tagCounts(ex) {
 }
 function portrait(cls, skin) {
   const c = document.createElement('canvas'); c.width = 32; c.height = 32; c.className = 'pic';
-  const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(heroArt(cls, skin).idle[0], 16, 8, 32, 32, 0, 0, 32, 32);
+  const x = c.getContext('2d'), art = heroArt(cls, skin), im = art.idle[0]; x.imageSmoothingEnabled = false;
+  if (art.img) { const k = Math.min(32 / im.width, 32 / (im.height * 0.6)); x.drawImage(im, (32 - im.width * k) / 2, 0, im.width * k, im.height * k); }
+  else x.drawImage(im, 16, 8, 32, 32, 0, 0, 32, 32);
   return c;
 }
 

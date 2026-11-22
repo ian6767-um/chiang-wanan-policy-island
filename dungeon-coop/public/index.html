@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#07050c">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>深淵獵團</title>
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -27,6 +28,11 @@
     <div id="hint" class="hint"></div>
     <div id="bossBars" class="boss-bars"></div>
     <div id="actionBar" class="action-bar"></div>
+  </div>
+  <div id="rotateHint" class="rotate-hint hidden" role="status">
+    <span>📱↻ 轉成橫向螢幕，視野更大、操作更順手</span>
+    <button id="btnLandscape" class="gold">切換橫向全螢幕</button>
+    <button id="btnRotateClose" class="link" aria-label="關閉">✕</button>
   </div>
   <!-- 手機觸控：左下動態搖桿、右下扇形按鈕 -->
   <div id="touch" class="touch">

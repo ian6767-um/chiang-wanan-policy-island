@@ -6,6 +6,8 @@ import { updateHud, banner, center, renderChoice } from './hud.js';
 import { createCamp, skinCards } from './camp.js';
 import { initMusic, playSong, playJingle, toggleMute, isMuted, probeMusicFiles, currentSong, musicLevel } from './music.js';
 import { drawKeyArt } from './keyart.js';
+import { loadSprites } from './art.js';
+loadSprites();
 
 const $ = id => document.getElementById(id);
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -142,11 +144,28 @@ function renderHome() {
     .map(([k, v]) => `<div class="stat"><b>${v}</b>${k}</div>`).join('');
   $('btnBind').classList.toggle('hidden', !profile.guest);
 }
-$('btnCreate').onclick = () => { $('homeErr').textContent = ''; wsSend({ t: 'create' }); };
+// ---------- 手機橫向 ----------
+const orientPref = () => store.get('abyss_orient') || 'landscape';
+const isPortrait = () => innerHeight > innerWidth;
+function goLandscape() {
+  if (input.mode !== 'mobile' || orientPref() !== 'landscape') return Promise.resolve(false);
+  const el = document.documentElement, fs = el.requestFullscreen || el.webkitRequestFullscreen;
+  const req = document.fullscreenElement || !fs ? Promise.resolve() : Promise.resolve(fs.call(el, { navigationUI: 'hide' })).catch(() => {});
+  return req.then(() => (screen.orientation && screen.orientation.lock ? screen.orientation.lock('landscape') : Promise.reject())).then(() => true).catch(() => false);
+}
+let rotateDismissed = false;
+function updateRotateHint() {
+  const show = inRoom && input.mode === 'mobile' && orientPref() === 'landscape' && isPortrait() && !rotateDismissed;
+  $('rotateHint').classList.toggle('hidden', !show);
+}
+$('btnLandscape').onclick = () => goLandscape().then(ok => { if (!ok) toast('這台裝置無法自動鎖定方向：請關閉手機的「螢幕方向鎖定」後把手機橫放'); });
+$('btnRotateClose').onclick = () => { rotateDismissed = true; updateRotateHint(); };
+addEventListener('resize', updateRotateHint);
+$('btnCreate').onclick = () => { $('homeErr').textContent = ''; goLandscape(); wsSend({ t: 'create' }); };
 $('btnJoin').onclick = () => {
   const code = $('joinCode').value.trim();
   if (!/^\d{4}$/.test(code)) { $('homeErr').textContent = '請輸入 4 位數字的房間號碼'; return; }
-  $('homeErr').textContent = ''; wsSend({ t: 'join', code });
+  $('homeErr').textContent = ''; goLandscape(); wsSend({ t: 'join', code });
 };
 $('joinCode').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4); });
 $('joinCode').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnJoin').click(); });
@@ -162,9 +181,11 @@ const camp = createCamp({ getProfile: () => profile, api, onChange: p => { profi
 
 function renderSettings(box) {
   box.innerHTML = `<label>操作模式<select class="ctrlSel"><option value="auto">自動偵測（依第一次輸入切換）</option><option value="pc">電腦：鍵盤滑鼠</option><option value="mobile">手機：觸控搖桿</option></select></label>
+    <label>手機螢幕方向<select class="orientSel"><option value="landscape">橫向（建議，進房時自動切換全螢幕橫向）</option><option value="any">跟隨手機方向</option></select></label>
     <button class="alt musicBtn">${isMuted() ? '♪ 音樂：關' : '♪ 音樂：開'}</button>
     <div class="note">電腦：WASD／方向鍵移動、滑鼠瞄準、左鍵普攻、空白鍵翻滾、右鍵或 E 特殊技、Q 或 R 大招、F 互動、Esc 選單、M 音樂。<br>手機：左下任意處按住出現搖桿；右下扇形按鈕＝攻擊／翻滾／特殊／大招／互動，自動瞄準最近敵人。</div>`;
   const sel = box.querySelector('.ctrlSel'); sel.value = input.pref; sel.onchange = () => setControlPref(sel.value);
+  const os = box.querySelector('.orientSel'); os.value = orientPref(); os.onchange = () => { store.set('abyss_orient', os.value); updateRotateHint(); };
   box.querySelector('.musicBtn').onclick = e => { audioInit(); toggleMute(); e.target.textContent = isMuted() ? '♪ 音樂：關' : '♪ 音樂：開'; };
 }
 
@@ -310,7 +331,7 @@ function frame(t) {
       ? { x: clamp((input.mouse.x * V.DPR - cv.width / 2) / V.SCALE * 0.12, -28, 28), y: clamp((input.mouse.y * V.DPR - cv.height / 2) / V.SCALE * 0.12, -18, 18) } : { x: 0, y: 0 };
     render(snap, dt, ip, lead);
     hudT -= dt;
-    if (hudT <= 0) { hudT = 1 / 15; updateHud(snap, exMap, myId, roomCode); }
+    if (hudT <= 0) { hudT = 1 / 15; updateHud(snap, exMap, myId, roomCode); updateRotateHint(); }
     renderChoice(exMap.get(myId), i => wsSend({ t: 'pick', i }), () => wsSend({ t: 'reroll' }));
   } else {
     ctx.fillStyle = '#07050c'; ctx.fillRect(0, 0, cv.width, cv.height);

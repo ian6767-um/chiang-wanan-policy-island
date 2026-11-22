@@ -198,15 +198,39 @@ function weaponArt(cls, pal) {
 }
 
 const cache = new Map();
+// ---------- 參考圖切出的精靈圖（public/assets/sprites，由 tools/extract_sprites.py 產生） ----------
+const IMG = new Map();
+// 參考圖中面朝左的造型（遊戲內預設面朝右）
+const FACES_LEFT = new Set(['blade_styx']);
+export function loadSprites() {
+  return fetch('assets/sprites/index.json').then(r => r.json()).then(meta => Promise.all(Object.keys(meta).map(name => new Promise(ok => {
+    const im = new Image();
+    im.onload = () => { IMG.set(name, im); ok(); };
+    im.onerror = ok;
+    im.src = `assets/sprites/${name}.png`;
+  })))).then(() => cache.clear()).catch(() => {});
+}
+function flipped(im) { const c = mk(im.width, im.height), x = c.getContext('2d'); x.translate(im.width, 0); x.scale(-1, 1); x.drawImage(im, 0, 0); return c; }
+function tintC(src, col) { const t = mk(src.width, src.height), x = t.getContext('2d'); x.drawImage(src, 0, 0); x.globalCompositeOperation = 'source-atop'; x.fillStyle = col; x.fillRect(0, 0, t.width, t.height); return t; }
+function imageHero(name, pal, skinId) {
+  let im = IMG.get(name);
+  if (FACES_LEFT.has(name)) im = flipped(im);
+  const frames = [im, im, im, im, im, im];
+  // ox/oy：以腳底中心為原點時的繪製位置
+  return { img: true, w: im.width, h: im.height, ox: -im.width / 2, oy: -im.height + 3, idle: frames.slice(0, 4), run: frames,
+    white: tintC(im, '#ffffff'), ghost: tintC(im, 'rgba(120,200,255,0.75)'), weapon: null, pal, fx: SKIN_FX[skinId] };
+}
 export function heroArt(cls, skinId) {
   const key = cls + ':' + skinId;
   if (cache.has(key)) return cache.get(key);
-  const sk = (SKINS[cls] || []).find(s => s.id === skinId) || SKINS[cls][0];
+  const sk0 = (SKINS[cls] || []).find(s => s.id === skinId) || SKINS[cls][0];
+  if (IMG.has(cls + '_' + sk0.id)) { const a = imageHero(cls + '_' + sk0.id, sk0.pal, sk0.id); cache.set(key, a); return a; }
+  const sk = sk0;
   const pal = sk.pal, draw = DRAW[cls];
   const idle = [0, 0.25, 0.5, 0.75].map(ph => draw(pal, ph, false, sk.id));
   const run = [0, 1 / 6, 2 / 6, 3 / 6, 4 / 6, 5 / 6].map(ph => draw(pal, ph, true, sk.id));
   const tint = (c, col) => { const t = mk(64, 64), x = t.getContext('2d'); x.drawImage(c, 0, 0); x.globalCompositeOperation = 'source-atop'; x.fillStyle = col; x.fillRect(0, 0, 64, 64); return t; };
-  const a = { idle, run, white: tint(idle[0], '#ffffff'), ghost: tint(idle[0], 'rgba(120,200,255,0.75)'), weapon: weaponArt(cls, pal), pal, fx: SKIN_FX[sk.id] };
+  const a = { idle, run, white: tint(idle[0], '#ffffff'), ghost: tint(idle[0], 'rgba(120,200,255,0.75)'), weapon: weaponArt(cls, pal), pal, fx: SKIN_FX[sk.id], w: 64, h: 64, ox: -32, oy: -56 };
   cache.set(key, a);
   return a;
 }
@@ -319,6 +343,13 @@ const PALS = { gargoyle: { a: '#7a7a8a', d: '#4a4a58', eye: '#ff3a3a' }, gargoyl
 export function bossArt(type) {
   const key = 'boss:' + type;
   if (cache.has(key)) return cache.get(key);
+  if (IMG.has(type)) {
+    const im = IMG.get(type);
+    const a = { img: true, frames: [im, im], white: tintC(im, '#ffffff'), ice: tintC(im, 'rgba(120,200,255,0.5)'), stone: tintC(im, 'rgba(60,60,70,0.6)'), red: tintC(im, 'rgba(255,40,40,0.35)'),
+      w: im.width, h: im.height, ox: -im.width / 2, oy: -im.height + 8 };
+    cache.set(key, a);
+    return a;
+  }
   const name = ALIAS[type] || type, fn = B[name], glow = B[name + 'Glow'];
   if (!fn) return null;
   const frames = [0, 1].map(f => {
@@ -327,7 +358,7 @@ export function bossArt(type) {
     return compose(96, 96, layers, glow ? P => glow(P, f, PALS[type]) : null);
   });
   const tint = (c, col) => { const t = mk(96, 96), x = t.getContext('2d'); x.drawImage(c, 0, 0); x.globalCompositeOperation = 'source-atop'; x.fillStyle = col; x.fillRect(0, 0, 96, 96); return t; };
-  const a = { frames, white: tint(frames[0], '#ffffff'), ice: tint(frames[0], 'rgba(120,200,255,0.5)'), stone: tint(frames[0], 'rgba(60,60,70,0.6)'), red: tint(frames[0], 'rgba(255,40,40,0.35)') };
+  const a = { frames, white: tint(frames[0], '#ffffff'), ice: tint(frames[0], 'rgba(120,200,255,0.5)'), stone: tint(frames[0], 'rgba(60,60,70,0.6)'), red: tint(frames[0], 'rgba(255,40,40,0.35)'), w: 96, h: 96, ox: -48, oy: -88 };
   cache.set(key, a);
   return a;
 }
