@@ -40,15 +40,15 @@ function join(ws, r, name) {
   if (r.clients.size >= 4) return send(ws, { t: 'err', msg: '房間已滿（最多 4 人）' });
   const used = new Set([...r.clients.values()].map(c => c.cls));
   const cls = Object.keys(CLASSES).find(c => !used.has(c)) || 'knight';
-  const c = { ws, name: String(name || '').trim().slice(0, 10) || '獵人' + ws.id, cls, ready: false };
+  const c = { ws, name: String(name || '').trim().slice(0, 10) || '獵人' + ws.id, cls, ready: false, meta: {} };
   r.clients.set(ws.id, c); ws.room = r;
   send(ws, { t: 'joined', id: ws.id, code: r.code });
-  if (r.game) { r.game.addPlayer(ws.id, c.name, c.cls); send(ws, r.game.mapData()); }
+  if (r.game) { r.game.addPlayer(ws.id, c.name, c.cls, c.meta); send(ws, r.game.mapData()); }
   lobby(r);
 }
 function startGame(r) {
   r.game = new Game({});
-  for (const [id, c] of r.clients) r.game.addPlayer(id, c.name, c.cls);
+  for (const [id, c] of r.clients) r.game.addPlayer(id, c.name, c.cls, c.meta);
   r.game.start();
   r.mapV = -1;
   r.timer = setInterval(() => tick(r), TICK * 1000);
@@ -95,6 +95,11 @@ wss.on('connection', ws => {
         break;
       }
       case 'class': if (c && !r.game && CLASSES[m.c]) { c.cls = m.c; lobby(r); } break;
+      case 'meta': // 角色永久強化與皮膚（存在玩家自己的瀏覽器，Game.addPlayer 會再驗證範圍）
+        if (c && m.meta && typeof m.meta === 'object') c.meta = { tree: m.meta.tree && typeof m.meta.tree === 'object' ? m.meta.tree : {}, skin: String(m.meta.skin || 'default').slice(0, 20) };
+        break;
+      case 'pick': if (c && r.game) r.game.pick(ws.id, m.i | 0); break;
+      case 'reroll': if (c && r.game) r.game.reroll(ws.id); break;
       case 'ready': if (c && !r.game) { c.ready = !c.ready; lobby(r); } break;
       case 'start':
         if (!c || r.game) return;

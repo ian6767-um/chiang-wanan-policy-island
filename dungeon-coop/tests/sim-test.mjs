@@ -1,25 +1,35 @@
-// 無頭模擬測試：4 名玩家隨機行動 + 作弊推進，確認不會丟出例外、能打到頭目並進下一層
+// 無頭模擬測試：4 名玩家自動戰鬥、選增幅、走門，確認整個流程不會丟出例外
 import { Game } from '../public/sim.js';
+import { TREE } from '../public/data.js';
+const maxTree = Object.fromEntries(TREE.map(n => [n.id, n.max]));
 const g = new Game({});
-['knight', 'ranger', 'mage', 'cleric'].forEach((c, i) => g.addPlayer(i + 1, 'P' + (i + 1), c));
+['knight', 'ranger', 'mage', 'cleric'].forEach((c, i) => g.addPlayer(i + 1, 'P' + (i + 1), c, { tree: i % 2 ? maxTree : {}, skin: 'default' }));
 g.start();
-let floorsSeen = new Set([1]), bossSeen = 0, maxBytes = 0, ticks = 0;
-for (let t = 0; t < 30 * 60 * 6; t++) {
-  ticks++;
+const seen = { types: new Set(), enemies: new Set(), chapters: new Set(), resonance: 0, picks: 0 };
+let maxBytes = 0, runs = 0;
+const TICKS = 30 * 60 * 25;
+for (let t = 0; t < TICKS; t++) {
   for (const p of g.players.values()) {
-    // 朝著未清除的房間走，隨機攻擊/技能/翻滾
-    const target = g.portal || (() => { const r = g.rooms.find(r => !r.cleared) || g.rooms[0]; return { x: (r.cx + .5) * 16, y: (r.cy + .5) * 16 }; })();
-    const a = Math.atan2(target.y - p.y, target.x - p.x) + (Math.random() - .5);
-    g.setInput(p.id, { mx: Math.cos(a), my: Math.sin(a), aim: null, fire: true, skill: Math.random() < .02, dodge: Math.random() < .01 });
-    if (p.downed && Math.random() < 0.01) { p.downed = false; p.hp = p.maxhp; }      // 測試用：避免全滅
-    if (!p.dead && !p.downed && Math.random() < 0.002) p.x = target.x, p.y = target.y; // 測試用：卡路時傳送
-    p.hp = Math.max(p.hp, 1) && p.hp;
+    if (p.choice) { g.pick(p.id, Math.floor(Math.random() * 3)); seen.picks++; continue; }
+    let target;
+    if (g.doors) target = g.doors[0];
+    else if (g.objs.length && g.phase === 'explore') target = g.objs.find(o => g.usable(o, p)) || { x: p.x, y: p.y };
+    else { const e = g.enemies[0]; target = e ? { x: p.x + (e.x - p.x) * 0.3, y: p.y + (e.y - p.y) * 0.3 } : { x: (g.room.cx + .5) * 16, y: (g.room.cy + .5) * 16 }; }
+    const a = Math.atan2(target.y - p.y, target.x - p.x) + (Math.random() - .5) * 0.4;
+    const far = Math.hypot(target.y - p.y, target.x - p.x) > 4;
+    g.setInput(p.id, { mx: far ? Math.cos(a) : 0, my: far ? Math.sin(a) : 0, aim: null, fire: true, skill: Math.random() < .03, dodge: Math.random() < .01 });
+    // 測試加速：大幅降低受傷，偶爾傳送卡住的玩家
+    if (p.downed && Math.random() < 0.02) { p.downed = false; p.hp = p.maxhp; }
+    if (g.isUp(p) && Math.random() < 0.003) { p.x = target.x; p.y = target.y; }
   }
+  for (const e of g.enemies) if (!e.boss && Math.random() < 0.002) e.hp = 0, g.killEnemy(e, g.players.get(1));
+  if (g.boss && Math.random() < 0.01) g.boss.hp -= g.boss.maxhp * 0.05;
   g.step(1 / 30);
-  if (g.boss) bossSeen++;
-  floorsSeen.add(g.floor);
-  const s = JSON.stringify(g.snapshot());
-  maxBytes = Math.max(maxBytes, s.length);
-  if (g.state === 'over') { console.log('game over at floor', g.floor, 'tick', t); g.start(); }
+  seen.types.add(g.stype); seen.chapters.add(g.chapter);
+  for (const e of g.enemies) seen.enemies.add(e.type);
+  const s = g.snapshot();
+  for (const ev of s.ev) if (ev.k === 'res') seen.resonance++;
+  maxBytes = Math.max(maxBytes, JSON.stringify(s).length);
+  if (g.state === 'over') { runs++; console.log('run end', g.result); g.start(); }
 }
-console.log({ ticks, floors: [...floorsSeen], bossTicks: bossSeen, maxSnapshotBytes: maxBytes, mapBytes: JSON.stringify(g.mapData()).length });
+console.log({ stageTypes: [...seen.types], chapters: [...seen.chapters], enemyTypes: seen.enemies.size, picks: seen.picks, resonance: seen.resonance, maxSnapshotBytes: maxBytes, runs });
