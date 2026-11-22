@@ -5,6 +5,7 @@
   "description": "深淵獵團 — 最多 4 人的像素地城共鬥網頁遊戲",
   "scripts": {
     "start": "node server.js",
+    "build:netlify": "node tools/build-netlify.mjs",
     "test": "node tests/music-test.mjs && node tests/server-test.mjs && node tests/sim-test.mjs"
   },
   "dependencies": {

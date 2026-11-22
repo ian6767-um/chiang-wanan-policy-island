@@ -222,7 +222,10 @@ const FILE_OF = { title: 'title', camp: 'hub', event: 'dungeon', ch1: 'dungeon',
 const files = {};
 let fileAudio = null, fileKey = null;
 export function probeMusicFiles() {
-  fetch('/api/music').then(r => r.json()).then(j => { for (const f of j.files || []) files[f.replace(/\.mp3$/, '')] = 'music/' + f; }).catch(() => {});
+  // 先讀靜態清單 music/index.json（Netlify 版本由建置腳本產生），沒有再問伺服器
+  const use = j => { for (const f of j.files || []) files[f.replace(/\.mp3$/, '')] = 'music/' + f; };
+  fetch('music/index.json').then(r => (r.ok ? r.json() : Promise.reject())).then(use)
+    .catch(() => fetch(String(window.ABYSS_SERVER || '').replace(/\/+$/, '') + '/api/music').then(r => r.json()).then(use)).catch(() => {});
 }
 function playFile(f) {
   if (fileKey === f) return true;

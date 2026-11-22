@@ -14,6 +14,9 @@ const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* 無法儲存 */ } } };
 const cv = $('game');
+// 伺服器位址（public/config.js）：留空＝與網頁同一台主機
+const SERVER = String(window.ABYSS_SERVER || '').trim().replace(/\/+$/, '');
+const WS_URL = SERVER ? SERVER.replace(/^http/, 'ws') + '/ws' : (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
 setupRender(cv);
 initInput(cv);
 
@@ -102,7 +105,7 @@ document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => b.close
 
 // ---------- API ----------
 async function api(route, body = {}) {
-  const r = await fetch('/api/' + route, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) }, body: JSON.stringify(body) });
+  const r = await fetch(SERVER + '/api/' + route, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) }, body: JSON.stringify(body) });
   const j = await r.json().catch(() => ({ error: '無法連線到伺服器' }));
   if (!r.ok) throw new Error(j.error || '發生錯誤');
   if (j.token) { token = j.token; store.set('abyss_token', token); }
@@ -194,7 +197,7 @@ function wsSend(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); 
 function connectWs() {
   wsWanted = true;
   if (ws && ws.readyState <= 1) return;
-  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+  ws = new WebSocket(WS_URL);
   ws.onopen = () => ws.send(JSON.stringify({ t: 'auth', token }));
   ws.onmessage = e => onMsg(JSON.parse(e.data));
   ws.onclose = () => {
@@ -351,3 +354,4 @@ window.__abyss = { get snap() { return snap; }, get profile() { return profile; 
 if (KEYART) $('screens').classList.add('hidden');
 else if (token) api('me').then(() => afterLogin()).catch(() => { token = null; store.set('abyss_token', null); show('auth'); });
 else show('auth');
+if (!SERVER && /netlify\.app$|netlify\.com$/.test(location.hostname)) $('authErr').textContent = '尚未設定遊戲伺服器：請在 config.js 填入伺服器網址（見 DEPLOY.md）';

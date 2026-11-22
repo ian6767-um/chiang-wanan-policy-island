@@ -32,7 +32,9 @@ function readBody(req) {
     req.on('end', () => { try { ok(s ? JSON.parse(s) : {}); } catch { bad(new AccountError('格式錯誤')); } });
   });
 }
-const json = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); };
+// 跨網域（前端放 Netlify 時需要）；CORS_ORIGIN 可限定只允許你的網站，例如 https://abyss.netlify.app
+const CORS = { 'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || '*', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
+const json = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...CORS }); res.end(JSON.stringify(obj)); };
 async function api(req, res, route) {
   try {
     const body = req.method === 'POST' ? await readBody(req) : {};
@@ -60,6 +62,8 @@ async function api(req, res, route) {
 
 const server = http.createServer((req, res) => {
   const url = decodeURIComponent((req.url || '/').split('?')[0]);
+  if (url.startsWith('/api/') && req.method === 'OPTIONS') { res.writeHead(204, CORS); return res.end(); }
+  if (url === '/api/health') return json(res, 200, { ok: true, rooms: rooms.size });
   if (url === '/api/music') {
     // 列出 public/music 內可用的 AI 生成配樂（title / hub / dungeon / boss .mp3）
     let files = [];

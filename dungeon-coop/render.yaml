@@ -1,0 +1,19 @@
+# Render Blueprint：在 Render 選 New → Blueprint，指向這個 repo 即可建立伺服器
+services:
+  - type: web
+    name: abyss-hunters
+    runtime: node
+    rootDir: dungeon-coop
+    buildCommand: npm ci --omit=dev
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    plan: starter            # 需要持久磁碟保存帳號資料；用 free 方案時帳號會在重啟後消失
+    envVars:
+      - key: ABYSS_DATA
+        value: /var/data
+      - key: CORS_ORIGIN
+        value: "*"           # 部署後可改成你的 Netlify 網址，例如 https://abyss-hunters.netlify.app
+    disk:
+      name: abyss-data
+      mountPath: /var/data
+      sizeGB: 1
