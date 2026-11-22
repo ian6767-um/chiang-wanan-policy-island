@@ -1,5 +1,5 @@
 // 深淵獵團 — 共用遊戲模擬（線上模式在伺服器跑、本機模式在瀏覽器跑）
-import { CLASSES, ENEMIES, BOSSES, CHAPTERS, STAGES_PER_CHAPTER, BOONS, BOON_MAP, RES, TAGS, TREE, SKINS, SHOP, defaultStats } from './data.js';
+import { CLASSES, ENEMIES, BOSSES, CHAPTERS, STAGES_PER_CHAPTER, BOONS, BOON_MAP, RES, TAGS, TREE, SKINS, SHOP, PARTY, TIMING, defaultSkin, defaultStats } from './data.js';
 export { CLASSES } from './data.js';
 export const T = 16;
 
@@ -15,8 +15,8 @@ const r2 = v => Math.round(v * 100) / 100;
 const TAU = Math.PI * 2;
 const NEED = { chest: 0.5, pedestal: 0.8, anvil: 1.0, altar: 1.2 };
 const EVO = {
-  knight: { 3: '揮砍範圍擴大', 5: '每次揮砍都射出劍氣' }, ranger: { 3: '額外射出平行箭', 5: '箭矢穿透 +1' },
-  mage: { 3: '爆炸範圍 +40%', 5: '火球爆炸後分裂' }, cleric: { 3: '穿透與治療 +1', 5: '聖光彈會追蹤敵人' },
+  blade: { 3: '攻擊範圍擴大', 5: '第四擊必定放出月牙斬' }, star: { 3: '每次多射一發飛彈', 5: '爆裂彈範圍 +40%' },
+  aegis: { 3: '揮擊範圍擴大', 5: '砸地時放出環狀衝擊波' }, hunter: { 3: '快速射擊變為雙發', 5: '（已是最強獵手）' },
 };
 
 export class Game {
@@ -37,33 +37,369 @@ export class Game {
   ups() { const a = []; for (const p of this.players.values()) if (this.isUp(p)) a.push(p); return a; }
   diff() { return (this.chapter - 1) * STAGES_PER_CHAPTER + this.stage; }
 
-  // ================= 玩家 =================
+  // ================= 玩家（帳號資料、職業、造型） =================
+  cleanMeta(meta = {}) {
+    const trees = {}, sel = {};
+    for (const c of Object.keys(CLASSES)) {
+      trees[c] = {};
+      const t = (meta.trees || {})[c] || {};
+      for (const n of TREE) trees[c][n.id] = clamp(Math.floor(+t[n.id] || 0), 0, n.max);
+      const s = (meta.sel || {})[c];
+      sel[c] = SKINS[c].some(k => k.id === s) ? s : defaultSkin(c);
+    }
+    return { trees, sel };
+  }
   addPlayer(id, name, cls, meta = {}) {
-    if (!CLASSES[cls]) cls = 'knight';
-    const tree = {};
-    for (const n of TREE) tree[n.id] = clamp(Math.floor(+(meta.tree && meta.tree[n.id]) || 0), 0, n.max);
-    const skin = (SKINS[cls] || []).some(s => s.id === meta.skin) ? meta.skin : 'default';
-    const p = { id, name: String(name || '獵人').slice(0, 10), cls, skin, tree, x: 0, y: 0, r: 5, aim: 0,
-      input: { mx: 0, my: 0, aim: 0, fire: false, skill: false, dodge: false } };
+    if (!CLASSES[cls]) cls = 'blade';
+    const p = { id, name: String(name || '獵人').slice(0, 10), cls, meta: this.cleanMeta(meta), x: 0, y: 0, r: 6, aim: 0, aimD: 80, ready: false,
+      input: { mx: 0, my: 0, aim: 0, ad: 80, fire: false, skill: false, dodge: false, ult: false, use: false }, prev: {} };
+    p.skin = p.meta.sel[cls]; p.tree = p.meta.trees[cls];
     this.resetPlayer(p);
     this.players.set(id, p);
-    if (this.state === 'play') {
-      const buddy = this.ups()[0];
-      p.x = buddy ? buddy.x : (this.room.cx + 0.5) * T; p.y = buddy ? buddy.y : (this.room.cy + 0.5) * T;
-      p.inv = 2;
-      this.text(`${p.name} 加入了戰鬥！`, '#8fd3ff');
-    }
+    const spot = this.state === 'hub' ? this.hubSpawn() : (this.ups()[0] || { x: (this.room.cx + 0.5) * T, y: (this.room.cy + 0.5) * T });
+    p.x = spot.x + rand(-12, 12); p.y = spot.y + rand(-6, 6); p.inv = 1;
     return p;
   }
+  setMeta(id, meta) {
+    const p = this.players.get(id); if (!p) return;
+    p.meta = this.cleanMeta(meta); p.skin = p.meta.sel[p.cls]; p.tree = p.meta.trees[p.cls];
+    if (this.state === 'hub') { const hp = p.hp / p.maxhp; this.recompute(p); p.hp = p.maxhp * hp; }
+    this.dirty = true;
+  }
+  setClass(id, cls) {
+    const p = this.players.get(id);
+    if (!p || !CLASSES[cls] || this.state !== 'hub' || p.cls === cls) return;
+    p.cls = cls; p.skin = p.meta.sel[cls]; p.tree = p.meta.trees[cls];
+    const x = p.x, y = p.y; this.resetPlayer(p); p.x = x; p.y = y; p.ready = false;
+    this.ev({ k: 'cls', i: id, c: cls }); this.ev({ k: 'blink', x: r1(x), y: r1(y) });
+    this.text(`${p.name} 化身為${CLASSES[cls].name}`, CLASSES[cls].color);
+  }
+  setSkin(id, cls, skin) {
+    const p = this.players.get(id);
+    if (!p || !SKINS[cls] || !SKINS[cls].some(s => s.id === skin)) return;
+    p.meta.sel[cls] = skin; if (p.cls === cls) p.skin = skin;
+    this.ev({ k: 'blink', x: r1(p.x), y: r1(p.y) }); this.dirty = true;
+  }
   resetPlayer(p) {
-    Object.assign(p, { boons: {}, cq: [], choice: null, choiceT: 0, maxhp: null, maxShield: null, energy: 100, maxEnergy: 100,
-      atkCd: 0, skillCd: 0, dodgeT: 0, dodgeCd: 0, dvx: 0, dvy: 0, hitT: 99, inv: 0, downed: false, bleed: 0, dead: false, revive: 0,
-      spinT: 0, spinTick: 0, flash: 0, moving: false, kills: 0, dmgDealt: 0, atkCount: 0, frenzyT: 0, dodgeCritT: 0, staticT: 2,
-      frostCd: 0, lastStandCd: 0, stopT: 0, slowT: 0, burnT: 0, poisT: 0, dotT: 0.5, useId: null, useT: 0, orbT: 0, trailT: 0, guardianUsed: false });
+    Object.assign(p, { boons: {}, cq: [], choice: null, choiceT: 0, maxhp: null, maxShield: null, state: 'idle',
+      atkCd: 0, combo: 0, comboT: 0, lungeT: 0, lvx: 0, lvy: 0, slamT: 0, dodgeT: 0, dvx: 0, dvy: 0, dashT: [], spT: [], ultE: 0, ultT: 0, ultHits: 0, ultTick: 0,
+      holdT: 0, chargeT: 0, blockT: 0, blockAge: 9, staggerT: 0, barrier: 0, barrierT: 0, fieldT: 0, marks: null, useEdge: false,
+      hitT: 99, inv: 0, downed: false, torchT: 0, bleed: 0, dead: false, revive: 0, flash: 0, moving: false, kills: 0, dmgDealt: 0, atkCount: 0, frenzyT: 0, dodgeCritT: 0, staticT: 2,
+      frostCd: 0, lastStandCd: 0, stopT: 0, slowT: 0, burnT: 0, poisT: 0, dotT: 0.5, useId: null, useT: 0, orbT: 0, trailT: 0, guardianUsed: false, prev: {} });
     this.recompute(p);
     p.hp = p.maxhp; p.shield = p.maxShield;
     p.wl = p.st.wlStart; p.lives = p.st.lives; p.rerolls = p.st.rerolls;
-    for (let i = 0; i < p.st.startBoons; i++) p.cq.push('normal');
+  }
+  charges(p, kind) { return CLASSES[p.cls][kind].charges - (kind === 'dash' ? p.dashT : p.spT).length; }
+  ultCharges(p) { return Math.floor(p.ultE / 100); }
+  addUlt(p, amt) { const c = CLASSES[p.cls].ult; p.ultE = Math.min(100 * c.charges, p.ultE + amt * c.gain * p.st.energyRegen); }
+  aimPoint(p, maxd) { const d = Math.min(p.aimD || 80, maxd); return { x: p.x + Math.cos(p.aim) * d, y: p.y + Math.sin(p.aim) * d }; }
+
+  // ---------- 共用動作狀態機：Idle → Move → Attack → Dash → Skill → Ultimate → Stagger → Downed ----------
+  updatePlayer(p, dt) {
+    if (p.dead) return;
+    const s = p.st, c = CLASSES[p.cls], inp = p.input || {}, pv = p.prev || {};
+    const edge = k => !!inp[k] && !pv[k];
+    p.useEdge = edge('use');
+    const presses = { fire: edge('fire'), skill: edge('skill'), dodge: edge('dodge'), ult: edge('ult') };
+    p.prev = { fire: !!inp.fire, skill: !!inp.skill, dodge: !!inp.dodge, ult: !!inp.ult, use: !!inp.use };
+    p.flash = Math.max(0, p.flash - dt); p.inv = Math.max(0, p.inv - dt);
+    p.dashT = p.dashT.map(t => t - dt).filter(t => t > 0);
+    p.spT = p.spT.map(t => t - dt).filter(t => t > 0);
+    let mx = +inp.mx || 0, my = +inp.my || 0;
+    const ml = Math.hypot(mx, my); if (ml > 1) { mx /= ml; my /= ml; }
+    if (p.downed) {
+      // 靈魂火炬：可緩慢移動，隊友長按互動鍵救援
+      p.state = 'downed'; p.torchT -= dt; p.moving = ml > 0.1;
+      this.moveEnt(p, mx * c.speed * TIMING.torchSpeed * dt, my * c.speed * TIMING.torchSpeed * dt);
+      let helper = null;
+      for (const q of this.players.values()) if (q !== p && this.isUp(q) && q.input && q.input.use && d2(p, q) < 30 * 30) helper = q;
+      p.revive = helper ? p.revive + dt * (helper.st.fastRevive ? 2 : 1) : Math.max(0, p.revive - dt * 0.5);
+      if (p.revive >= TIMING.reviveHold) { this.revivePlayer(p, TIMING.reviveFrac); if (helper.st.fastRevive) p.shield = p.maxShield; }
+      else if (p.torchT <= 0) { p.dead = true; p.downed = false; this.text(`${p.name} 的靈魂火炬熄滅了…下一關會復活`, '#ff6b6b'); }
+      return;
+    }
+    // 狀態異常
+    p.slowT -= dt; p.burnT -= dt; p.poisT -= dt; p.frostCd -= dt; p.lastStandCd -= dt; p.frenzyT -= dt; p.dodgeCritT -= dt;
+    p.dotT -= dt;
+    if (p.dotT <= 0) {
+      p.dotT = 0.5;
+      const dmg = ((p.burnT > 0 ? 3 : 0) + (p.poisT > 0 ? 2 : 0)) * (1 + 0.3 * (this.chapter - 1));
+      if (dmg) this.hurtRaw(p, dmg);
+      if (!this.isUp(p)) return;
+    }
+    if (s.regen && p.hp < p.maxhp) p.hp = Math.min(p.maxhp, p.hp + s.regen * s.healMul * dt);
+    p.hitT += dt;
+    if (p.hitT > s.shieldDelay) p.shield = Math.min(p.maxShield, p.shield + 20 * s.shieldRegen * dt);
+    p.atkCd -= dt; p.comboT -= dt; p.staggerT -= dt; p.fieldT -= dt; p.blockT -= dt; p.blockAge += dt;
+    p.barrierT -= dt; if (p.barrierT <= 0) p.barrier = 0;
+    if (p.blockT > 0 && s.unique && p.cls === 'aegis') p.shield = Math.min(p.maxShield, p.shield + 25 * dt);
+    if (p.choice) { p.inv = Math.max(p.inv, 0.3); p.moving = false; p.state = 'idle'; return; }
+    if (p.stopT > 0) { p.stopT -= dt; p.moving = false; p.state = 'stagger'; return; }
+    // 瞄準：手機（aim = null）自動鎖定最近敵人
+    if (inp.aim == null || !isFinite(inp.aim)) {
+      const t = this.nearestEnemy(p, 260);
+      if (t) { p.aim = Math.atan2(t.y - p.y, t.x - p.x); p.aimD = Math.hypot(t.x - p.x, t.y - p.y); }
+      else { if (ml > 0.1) p.aim = Math.atan2(my, mx); p.aimD = 80; }
+    } else { p.aim = +inp.aim; p.aimD = clamp(+inp.ad || 80, 8, 400); }
+    p.moving = ml > 0.1;
+    if (p.ultT > 0) { p.state = 'ult'; this.updateUlt(p, dt); return; }
+    if (p.staggerT > 0) { p.state = 'stagger'; return; }
+    if (presses.dodge && p.dodgeT <= 0 && this.charges(p, 'dash') > 0 && p.slamT <= 0) this.startDash(p, mx, my);
+    let spd = c.speed * s.speed * (p.slowT > 0 ? 0.6 : 1);
+    if (p.blockT > 0) spd *= 0.4;
+    if (p.cls === 'aegis' && p.atkCd > 0) spd *= 0.55;
+    if (p.chargeT > 0) spd *= 0.6;
+    if (p.dodgeT > 0) {
+      p.dodgeT -= dt;
+      this.moveEnt(p, p.dvx * spd * 2.9 * dt, p.dvy * spd * 2.9 * dt);
+      if (p.cls === 'blade') for (const e of this.enemies) {
+        if (e.dead || !(e.markT > 0) || e.markOwner !== p.id || dist(e, p) > e.r + p.r + 8) continue;
+        e.markT = 0; this.hurtEnemy(e, this.pdmg(p, 40, e), p, Math.atan2(e.y - p.y, e.x - p.x), { kb: 80 });
+        this.ev({ k: 'boom', x: r1(e.x), y: r1(e.y), r: 26, c: 'shadow', o: p.id });
+      }
+      p.trailT -= dt;
+      if (p.trailT <= 0 && (s.dodgeFire || s.dodgePoison)) {
+        p.trailT = 0.07;
+        this.zones.push({ k: s.dodgeFire ? 'fire' : 'poison', x: p.x, y: p.y, r: 12, t: 2.5, tick: 0, owner: p.id });
+      }
+      if (p.dodgeT <= 0 && s.dodgeShock) this.blast(p, p.x, p.y, 50, 18, 'zap');
+    } else if (p.lungeT > 0) { p.lungeT -= dt; this.moveEnt(p, p.lvx * dt, p.lvy * dt); }
+    else if (p.slamT > 0) { p.slamT -= dt; this.moveEnt(p, p.lvx * dt, p.lvy * dt); if (p.slamT <= 0) this.aegisSlam(p); }
+    else this.moveEnt(p, mx * spd * dt, my * spd * dt);
+    if (presses.ult && this.ultCharges(p) >= 1 && p.dodgeT <= 0) this.ultimate(p);
+    else if (presses.skill && this.charges(p, 'special') > 0 && p.dodgeT <= 0) this.special(p);
+    if (p.dodgeT <= 0 && p.slamT <= 0 && p.lungeT <= 0) this.attackInput(p, inp, presses.fire, dt);
+    // 被動
+    if (s.staticField) {
+      p.staticT -= dt;
+      if (p.staticT <= 0) {
+        p.staticT = 2;
+        const hit = new Set();
+        for (let i = 0; i < s.staticField; i++) {
+          const e = this.nearestEnemy(p, 120, hit);
+          if (!e) break;
+          hit.add(e.id);
+          this.hurtEnemy(e, this.pdmg(p, 12 * s.chainDmg, e), p, null, { proc: false, noCrit: true, col: 4 });
+          if (s.paralyze && !e.boss) e.stunT = 0.6;
+          this.ev({ k: 'zap', pts: [[r1(p.x), r1(p.y - 4)], [r1(e.x), r1(e.y)]], o: p.id });
+        }
+      }
+    }
+    if (s.orbit) {
+      p.orbT -= dt;
+      if (p.orbT <= 0) {
+        p.orbT = 0.2;
+        for (let i = 0; i < s.orbit; i++) {
+          const a = this.time * 3.5 + i * TAU / s.orbit, bx = p.x + Math.cos(a) * 26, by = p.y - 3 + Math.sin(a) * 26;
+          for (const e of this.enemies) if (!e.dead && !e.under && Math.hypot(e.x - bx, e.y - by) < e.r + 6) this.hurtEnemy(e, this.pdmg(p, 7, e), p, a, { proc: false, kb: 20 });
+        }
+      }
+    }
+    p.state = p.dodgeT > 0 ? 'dash' : p.blockT > 0 ? 'skill' : (p.atkCd > 0 || p.chargeT > 0 || p.slamT > 0 || p.lungeT > 0) ? 'attack' : p.moving ? 'move' : 'idle';
+  }
+
+  startDash(p, mx, my) {
+    const c = CLASSES[p.cls], l = Math.hypot(mx, my);
+    p.dashT.push(c.dash.cd * p.st.dodgeCd);
+    if (l > 0.1) { p.dvx = mx / l; p.dvy = my / l; } else { p.dvx = Math.cos(p.aim); p.dvy = Math.sin(p.aim); }
+    p.dodgeT = TIMING.iframes; p.inv = Math.max(p.inv, TIMING.iframes);
+    p.combo = 0; p.chargeT = 0; p.holdT = 0;
+    if (p.st.dodgeCrit) p.dodgeCritT = 1.5;
+    this.ev({ k: 'dash', i: p.id, x: r1(p.x), y: r1(p.y) }); this.ev({ k: 'snd', s: 'dodge' });
+    if (p.cls === 'hunter') {
+      const t = this.nearestEnemy(p, 260);
+      if (t) this.pshoot(p, 'arrow', Math.atan2(t.y - p.y, t.x - p.x), 300, 12, { home: true });
+    }
+  }
+
+  attackInput(p, inp, pressed, dt) {
+    if (p.cls === 'hunter') {
+      if (pressed && p.atkCd <= 0) this.hunterShot(p, 'quick');
+      if (inp.fire) { p.holdT += dt; if (p.holdT > 0.22) p.chargeT = p.holdT - 0.22; }
+      else { if (p.chargeT > 0) this.hunterShot(p, 'charged'); p.holdT = 0; p.chargeT = 0; }
+      return;
+    }
+    if (inp.fire && p.atkCd <= 0) this.comboStep(p);
+  }
+  perfectWindow(p) { return p.st.unique ? [0.62, 1.05] : [0.72, 0.95]; }
+  hunterShot(p, kind) {
+    const s = p.st, rate = s.rate * (p.frenzyT > 0 ? 1.35 : 1), a = p.aim;
+    p.atkCount++;
+    if (kind === 'quick') {
+      p.atkCd = 0.16 / rate;
+      this.pshoot(p, 'arrow', a + rand(-0.04, 0.04), 320, 10, { off: p.wl >= 3 ? -3 : 0 });
+      if (p.wl >= 3) this.pshoot(p, 'arrow', a, 320, 10, { off: 3 });
+      for (let i = 1; i <= s.multishot; i++) for (const sg of [-1, 1]) this.pshoot(p, 'arrow', a + sg * 0.12 * i, 300, 8);
+    } else {
+      const [lo, hi] = this.perfectWindow(p), ch = p.chargeT;
+      p.atkCd = 0.22 / rate;
+      if (ch >= lo && ch <= hi) {
+        this.pshoot(p, 'perfect', a, 500, 48, { pierce: 99, r: 4, life: 1.1, boom: s.unique });
+        this.ev({ k: 'perfect', x: r1(p.x), y: r1(p.y), o: p.id }); this.ev({ k: 'snd', s: 'perfect' });
+      } else this.pshoot(p, 'arrow', a, 380, 10 + 22 * Math.min(1, ch / 0.85), { pierce: 1 });
+    }
+    this.afterAttack(p);
+    this.ev({ k: 'snd', s: 'atk_hunter' });
+  }
+  comboStep(p) {
+    const c = CLASSES[p.cls], s = p.st, rate = s.rate * (p.frenzyT > 0 ? 1.35 : 1), a = p.aim, ms = s.multishot;
+    if (p.comboT <= 0) p.combo = 0;
+    const idx = p.combo % c.combo.length, step = c.combo[idx], last = idx === c.combo.length - 1;
+    p.combo = (idx + 1) % c.combo.length; p.comboT = 0.7;
+    p.atkCd = step.cd / rate; p.atkCount++;
+    const rs = p.wl >= 3 ? 1.2 : 1;
+    switch (p.cls) {
+      case 'blade':
+        this.melee(p, step.r * rs, step.arc, step.dmg, a, step.kb || 40);
+        this.ev({ k: 'slash', x: r1(p.x), y: r1(p.y), a: r2(a), i: p.id, r: Math.round(step.r * rs), n: idx, c: 'blade' });
+        if (step.lunge) {
+          const L = step.lunge * (s.unique ? 2 : 1);
+          p.lungeT = 0.12; p.lvx = Math.cos(a) * L / 0.12; p.lvy = Math.sin(a) * L / 0.12; p.inv = Math.max(p.inv, 0.12);
+          if (s.unique || p.wl >= 5) this.pshoot(p, 'crescent', a, 260, 18, { pierce: 4, r: 6, life: 0.55 });
+        }
+        if (last) for (let i = 1; i <= ms; i++) for (const sg of [-1, 1]) this.pshoot(p, 'crescent', a + sg * 0.3 * i, 240, 12, { pierce: 2, r: 5, life: 0.45 });
+        break;
+      case 'star':
+        if (step.burst) {
+          this.pshoot(p, 'orb', a, 200, step.dmg, { splash: step.burst * (p.wl >= 5 ? 1.4 : 1), r: 5, frag: s.unique });
+        } else {
+          this.pshoot(p, 'arcane', a + (idx ? 0.15 : -0.15), 240, step.dmg, { home: true, life: 1.4 });
+          if (p.wl >= 3) this.pshoot(p, 'arcane', a, 240, step.dmg * 0.6, { home: true, life: 1.4 });
+        }
+        for (let i = 1; i <= ms; i++) for (const sg of [-1, 1]) this.pshoot(p, 'arcane', a + sg * 0.25 * i, 230, 8, { home: true, life: 1.3 });
+        break;
+      case 'aegis':
+        if (step.slam) {
+          p.slamT = 0.22; p.lvx = Math.cos(a) * 90; p.lvy = Math.sin(a) * 90; p.inv = Math.max(p.inv, 0.22);
+          this.ev({ k: 'leapfx', i: p.id });
+        } else {
+          this.melee(p, step.r * rs, step.arc, step.dmg, a, 110, true);
+          this.ev({ k: 'slash', x: r1(p.x), y: r1(p.y), a: r2(a), i: p.id, r: Math.round(step.r * rs), n: idx, c: 'aegis' });
+        }
+        break;
+    }
+    this.afterAttack(p);
+    this.ev({ k: 'snd', s: 'atk_' + p.cls });
+  }
+  afterAttack(p) {
+    const s = p.st, a = p.aim;
+    if (s.iceShards && p.atkCount % s.iceShards === 0) for (let i = 0; i < 8; i++) this.pshoot(p, 'shard', i * TAU / 8, 200, 8, { fx: 'slow', proc: false, life: 0.8 });
+    if (s.holyShot && p.atkCount % s.holyShot === 0) this.pshoot(p, 'hbolt', a, 180, 14, { home: true, heal: 2, life: 2.5 });
+  }
+  melee(p, r, arc, dmg, a, kb, deflect = false) {
+    let hits = 0;
+    for (const e of this.enemies) {
+      if (e.dead || e.under) continue;
+      if (dist(e, p) < r + e.r && Math.abs(angDiff(Math.atan2(e.y - p.y, e.x - p.x), a)) < arc) { this.hurtEnemy(e, this.pdmg(p, dmg, e), p, a, { kb }); hits++; }
+    }
+    if (deflect || p.cls === 'blade') this.projs = this.projs.filter(pr => {
+      if (pr.team === 'e' && Math.hypot(pr.x - p.x, pr.y - p.y) < r + 2 && Math.abs(angDiff(Math.atan2(pr.y - p.y, pr.x - p.x), a)) < arc) { this.ev({ k: 'spark', x: r1(pr.x), y: r1(pr.y) }); return false; }
+      return true;
+    });
+    if (hits) this.ev({ k: 'hitstop', i: p.id });
+    return hits;
+  }
+  aegisSlam(p) {
+    const r = 44 * (p.wl >= 3 ? 1.2 : 1);
+    for (const e of this.enemies) {
+      if (e.dead || e.under || dist(e, p) > r + e.r) continue;
+      this.hurtEnemy(e, this.pdmg(p, 30, e), p, Math.atan2(e.y - p.y, e.x - p.x), { kb: 120 });
+      if (e.boss) e.stagger += 30; else e.stunT = Math.max(e.stunT, 0.8);
+    }
+    if (p.wl >= 5) for (let i = 0; i < 10; i++) this.pshoot(p, 'crescent', i * TAU / 10, 200, 10, { pierce: 2, r: 5, life: 0.4, proc: false });
+    this.ev({ k: 'boom', x: r1(p.x), y: r1(p.y), r, c: 'gold', o: p.id }); this.ev({ k: 'shake', v: 4, o: p.id });
+  }
+
+  special(p) {
+    const c = CLASSES[p.cls], s = p.st;
+    p.spT.push(c.special.cd * s.skillCd);
+    this.ev({ k: 'skill', i: p.id, c: p.cls, x: r1(p.x), y: r1(p.y) });
+    switch (p.cls) {
+      case 'blade':
+        for (const sg of [-1, 0, 1]) this.pshoot(p, 'markblade', p.aim + sg * 0.25, 300, 10, { mark: true, pierce: 1, r: 4 });
+        break;
+      case 'star': {
+        const q = this.aimPoint(p, 150);
+        this.zones.push({ k: 'grav', x: q.x, y: q.y, r: 62, t: 2.5, tick: 0, owner: p.id });
+        break;
+      }
+      case 'aegis': p.blockT = 1.2; p.blockAge = 0; break;
+      case 'hunter': {
+        const q = this.aimPoint(p, 120);
+        this.zones.push({ k: 'trap', x: q.x, y: q.y, r: 14, t: 20, tick: 0, owner: p.id });
+        break;
+      }
+    }
+    if (s.skillMeteor) {
+      const live = this.enemies.filter(e => !e.dead && !e.under);
+      for (let i = 0; i < s.skillMeteor; i++) {
+        const t = live.length ? pick(live) : p;
+        this.zones.push({ k: 'met', x: t.x + rand(-10, 10), y: t.y + rand(-10, 10), r: 30, t: 0.7 + i * 0.12, d: 0.7 + i * 0.12, owner: p.id });
+      }
+    }
+    if (s.thunderSkill) {
+      for (const e of this.enemies) if (!e.dead && !e.under) {
+        this.hurtEnemy(e, this.pdmg(p, 25, e), p, null, { proc: false, col: 4 });
+        if (!e.boss) e.stunT = 0.8;
+        this.ev({ k: 'zap', pts: [[r1(e.x + rand(-20, 20)), r1(e.y - 120)], [r1(e.x), r1(e.y)]], o: p.id });
+      }
+    }
+    if (s.skillHealTeam) for (const q of this.players.values()) if (this.isUp(q)) { this.heal(q, q.maxhp * 0.25); this.ev({ k: 'heal', x: r1(q.x), y: r1(q.y), v: Math.round(q.maxhp * 0.25) }); }
+  }
+
+  ultimate(p) {
+    p.ultE -= 100;
+    this.ev({ k: 'ult', i: p.id, c: p.cls, x: r1(p.x), y: r1(p.y) }); this.ev({ k: 'shake', v: 6, o: p.id });
+    switch (p.cls) {
+      case 'blade': p.ultT = 1.4; p.ultHits = 8; p.ultTick = 0.08; p.ox = p.x; p.oy = p.y; p.inv = 1.6; break;
+      case 'star': {
+        const q = this.aimPoint(p, 220);
+        p.ultT = 0.8; p.ux = q.x; p.uy = q.y; p.inv = 0.9;
+        this.zones.push({ k: 'bigmet', x: q.x, y: q.y, r: 95, t: 0.8, d: 0.8, owner: p.id });
+        break;
+      }
+      case 'aegis':
+        this.zones.push({ k: 'field', x: p.x, y: p.y, r: 80, t: 6, tick: 0, owner: p.id, given: [] });
+        p.inv = Math.max(p.inv, 0.6);
+        break;
+      case 'hunter':
+        for (let i = 0; i < 26; i++) {
+          const ang = p.aim + rand(-0.45, 0.45), dd = rand(30, 150);
+          const x = p.x + Math.cos(ang) * dd, y = p.y + Math.sin(ang) * dd, t = 0.25 + i * 0.035;
+          this.zones.push({ k: 'larrow', x, y, r: 16, t, d: t, owner: p.id });
+        }
+        p.inv = Math.max(p.inv, 0.3);
+        break;
+    }
+  }
+  updateUlt(p, dt) {
+    p.ultT -= dt; p.inv = Math.max(p.inv, 0.1);
+    if (p.cls === 'blade') {
+      p.ultTick -= dt;
+      if (p.ultTick <= 0 && p.ultHits > 0) {
+        p.ultTick = 0.14; p.ultHits--;
+        const live = this.enemies.filter(e => !e.dead && !e.under && Math.hypot(e.x - p.ox, e.y - p.oy) < 140);
+        const t = live.length ? pick(live) : null;
+        const px = p.x, py = p.y;
+        if (t) {
+          const ang = rand(0, TAU); p.x = t.x + Math.cos(ang) * (t.r + 8); p.y = t.y + Math.sin(ang) * (t.r + 8);
+          p.aim = Math.atan2(t.y - p.y, t.x - p.x);
+          this.hurtEnemy(t, this.pdmg(p, 30, t), p, p.aim, { kb: 30 });
+        } else { const ang = rand(0, TAU); p.x = p.ox + Math.cos(ang) * 40; p.y = p.oy + Math.sin(ang) * 40; }
+        this.ev({ k: 'after', i: p.id, x1: r1(px), y1: r1(py), x2: r1(p.x), y2: r1(p.y), o: p.id });
+      }
+      if (p.ultT <= 0) {
+        p.x = p.ox; p.y = p.oy;
+        this.blast(p, p.x, p.y, 70, 55, 'shadow'); this.ev({ k: 'shake', v: 10, o: p.id });
+      }
+    } else if (p.cls === 'star') {
+      if (p.ultT <= 0) {
+        this.blast(p, p.ux, p.uy, 95, 160, 'star');
+        this.zones.push({ k: 'blaze', x: p.ux, y: p.uy, r: 72, t: 5, tick: 0, owner: p.id });
+        this.ev({ k: 'shake', v: 14, o: p.id });
+      }
+    } else p.ultT = 0;
   }
   removePlayer(id) { const p = this.players.get(id); if (p && this.state === 'play') this.text(`${p.name} 離開了`, '#aaaaaa'); this.players.delete(id); }
   setInput(id, inp) { const p = this.players.get(id); if (p) p.input = inp; }
@@ -75,7 +411,7 @@ export class Game {
   }
   recompute(p) {
     const c = CLASSES[p.cls], s = defaultStats();
-    for (const n of TREE) { const l = p.tree[n.id] || 0; if (l) n.apply(s, l); }
+    for (const n of TREE) { const l = (p.tree || {})[n.id] || 0; if (l) n.apply(s, l); }
     for (const id in p.boons) BOON_MAP[id].apply(s, p.boons[id]);
     const cnt = this.tagCounts(p);
     for (const tag in RES) for (const tier of RES[tag]) if ((cnt[tag] || 0) >= tier.n) tier.apply(s);
@@ -127,12 +463,69 @@ export class Game {
   }
 
   // ================= 關卡流程 =================
-  start() {
-    this.state = 'play'; this.chapter = 1; this.stage = 0; this.gold = 0; this.time = 0; this.bossKills = 0; this.cleared = 0;
-    for (const p of this.players.values()) this.resetPlayer(p);
+  startRun() {
+    this.state = 'play'; this.chapter = 1; this.stage = 0; this.gold = 0; this.time = 0; this.bossKills = 0; this.cleared = 0; this.countdown = null;
+    for (const p of this.players.values()) { this.resetPlayer(p); p.ready = false; for (let i = 0; i < p.st.startBoons; i++) p.cq.push('normal'); }
+    this.ev({ k: 'run' });
     this.enterStage('combat', true);
   }
+  start() { this.startRun(); }
 
+  // ================= 冥界聖殿（大廳） =================
+  enterHub() {
+    this.state = 'hub'; this.phase = 'hub'; this.stype = 'hub'; this.chapter = 1; this.stage = 0; this.countdown = null; this.markInfo = null;
+    this.enemies = []; this.projs = []; this.hazards = []; this.pickups = []; this.spawns = []; this.zones = []; this.objs = []; this.doors = null;
+    const W = 34, H = 23, R = { x: 2, y: 3, w: 30, h: 18 };
+    R.cx = R.x + (R.w >> 1); R.cy = R.y + (R.h >> 1);
+    const tiles = new Uint8Array(W * H);
+    for (let y = R.y; y < R.y + R.h; y++) for (let x = R.x; x < R.x + R.w; x++) tiles[y * W + x] = 1;
+    for (const [x, y] of [[R.x + 8, R.y + 4], [R.x + 21, R.y + 4], [R.x + 8, R.y + 13], [R.x + 21, R.y + 13]]) tiles[y * W + x] = 0;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (tiles[y * W + x]) continue;
+      let near = false;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < W && yy < H && tiles[yy * W + xx] === 1) near = true; }
+      if (near) tiles[y * W + x] = 2;
+    }
+    this.W = W; this.H = H; this.tiles = tiles; this.room = R;
+    const add = o => this.objs.push({ id: this.id(), used: [], ...o });
+    Object.keys(CLASSES).forEach((c, i) => add({ k: 'classAltar', cls: c, x: (R.x + 3.5) * T, y: (R.y + 3 + i * 3.8) * T }));
+    add({ k: 'wardrobe', x: (R.x + R.w - 4) * T, y: (R.y + 3.5) * T });
+    add({ k: 'portal', x: (R.cx + 0.5) * T, y: (R.y + 4) * T });
+    for (const [dx, dy] of [[-4, 12], [-8, 14], [-3, 9]]) this.createEnemy('dummy', (R.x + R.w + dx) * T, (R.y + dy) * T);
+    for (const p of this.players.values()) {
+      const x = p.x, y = p.y; this.resetPlayer(p); p.ready = false;
+      const q = this.hubSpawn(); p.x = q.x + rand(-20, 20); p.y = q.y + rand(-8, 8); p.inv = 1;
+    }
+    this.mapVersion++; this.dirty = true;
+    this.ev({ k: 'hub' });
+  }
+  hubSpawn() { return { x: (this.room.cx + 0.5) * T, y: (this.room.cy + 2) * T }; }
+  portal() { return this.objs.find(o => o.k === 'portal'); }
+  updateHub(dt) {
+    for (const p of this.players.values()) {
+      if (p.downed || p.dead) { p.downed = false; p.dead = false; p.hp = p.maxhp; }
+      this.updatePlayer(p, dt);
+      if (!p.useEdge) continue;
+      let best = null, bd = 22;
+      for (const o of this.objs) { const d = Math.hypot(o.x - p.x, o.y - p.y); const lim = o.k === 'portal' ? 36 : 22; if (d < lim && d < bd + (o.k === 'portal' ? 14 : 0)) { best = o; bd = d; } }
+      if (!best) continue;
+      if (best.k === 'classAltar') this.setClass(p.id, best.cls);
+      else if (best.k === 'wardrobe') this.ev({ k: 'ui', w: 'wardrobe', i: p.id });
+      else if (best.k === 'portal') { p.ready = !p.ready; this.ev({ k: 'snd', s: p.ready ? 'pick' : 'door' }); this.dirty = true; }
+    }
+    for (const e of this.enemies) if (!e.dead) this.updateEnemy(e, dt);
+    this.updateProjs(dt);
+    this.updateZones(dt);
+    const po = this.portal(), all = [...this.players.values()];
+    const go = all.length > 0 && all.every(p => p.ready && Math.hypot(p.x - po.x, p.y - po.y) < 40);
+    if (go) {
+      if (this.countdown == null) { this.countdown = TIMING.hubCountdown; this.ev({ k: 'count', n: TIMING.hubCountdown }); }
+      const before = Math.ceil(this.countdown);
+      this.countdown -= dt;
+      if (Math.ceil(this.countdown) !== before && this.countdown > 0) this.ev({ k: 'count', n: Math.ceil(this.countdown) });
+      if (this.countdown <= 0) this.startRun();
+    } else if (this.countdown != null) { this.countdown = null; this.ev({ k: 'count', n: 0 }); }
+  }
   enterStage(type, first = false) {
     if (!first) this.cleared++;
     if (type === 'next') { this.chapter++; this.stage = 0; type = 'combat'; }
@@ -146,7 +539,7 @@ export class Game {
     for (const p of this.players.values()) {
       if (p.dead) { p.dead = false; p.hp = Math.ceil(p.maxhp * 0.35); }
       else if (p.downed) p.hp = Math.ceil(p.maxhp * 0.3);
-      Object.assign(p, { downed: false, revive: 0, spinT: 0, dodgeT: 0, inv: 1.5, guardianUsed: false, useId: null, useT: 0, slowT: 0, burnT: 0, poisT: 0 });
+      Object.assign(p, { downed: false, revive: 0, ultT: 0, blockT: 0, dodgeT: 0, lungeT: 0, slamT: 0, inv: 1.5, guardianUsed: false, useId: null, useT: 0, slowT: 0, burnT: 0, poisT: 0 });
       p.x = (R.cx + 0.5) * T + (i - (this.players.size - 1) / 2) * 16;
       p.y = (R.y + R.h - 2.5) * T;
       i++;
@@ -170,7 +563,7 @@ export class Game {
     const R = this.room, cx = (R.cx + 0.5) * T, cy = (R.cy + 0.5) * T;
     const add = o => this.objs.push({ id: this.id(), used: [], ...o });
     if (type === 'supply') {
-      for (const p of this.players.values()) if (!p.dead) { this.heal(p, p.maxhp * 0.35); p.energy = p.maxEnergy; p.shield = p.maxShield; }
+      for (const p of this.players.values()) if (!p.dead) { this.heal(p, p.maxhp * 0.35); this.addUlt(p, 50); p.shield = p.maxShield; }
       this.text('補給站：生命回復 35%。用金幣購買物資（站在台座上）', '#6aff9a');
       const items = Object.keys(SHOP).sort(() => Math.random() - 0.5).slice(0, 3);
       const cm = 1 + 0.15 * (this.chapter - 1);
@@ -273,7 +666,7 @@ export class Game {
     this.W = W; this.H = H; this.tiles = tiles; this.room = R;
   }
   mapData() {
-    return { t: 'map', v: this.mapVersion, ch: this.chapter, w: this.W, h: this.H, tiles: Array.from(this.tiles).join(''), room: this.room };
+    return { t: 'map', v: this.mapVersion, ch: this.chapter, hub: this.state === 'hub' ? 1 : 0, w: this.W, h: this.H, tiles: Array.from(this.tiles).join(''), room: this.room };
   }
 
   // ---------- 碰撞 ----------
@@ -333,9 +726,10 @@ export class Game {
 
   // ================= 主迴圈 =================
   step(dt) {
-    if (this.state === 'over') { this.overT -= dt; return; }
-    if (this.state !== 'play') return;
     this.time += dt; this.tick++;
+    if (this.state === 'over') { this.overT -= dt; if (this.overT <= 0) this.enterHub(); return; }
+    if (this.state === 'hub') { this.updateHub(dt); return; }
+    if (this.state !== 'play') return;
     for (const p of this.players.values()) {
       if (!p.choice && p.cq.length) { p.choice = this.makeChoice(p, p.cq.shift()); p.choiceT = 0; this.dirty = true; }
       if (p.choice) { p.choiceT += dt; if (p.choiceT > 60) this.pick(p.id, 0); }
@@ -399,7 +793,7 @@ export class Game {
     const np = Math.max(1, this.players.size), d = this.diff();
     const pool = CHAPTERS[this.chapter - 1].pool;
     const sub = pool.slice(0, this.stage <= 2 ? 4 : this.stage <= 5 ? 6 : 8);
-    const count = Math.round(3 + d * 0.12 + np * 1.4 + rand(0, 2));
+    const count = Math.round((4.4 + d * 0.12 + rand(0, 2)) * PARTY.count[Math.min(4, np)]);
     const ups = this.ups();
     let elites = this.stype === 'elite' && this.waves === 1 ? this.elites : 0;
     for (let i = 0; i < count; i++) {
@@ -415,121 +809,9 @@ export class Game {
   }
 
   // ================= 玩家更新 =================
-  updatePlayer(p, dt) {
-    if (p.dead) return;
-    const s = p.st;
-    p.flash = Math.max(0, p.flash - dt); p.inv = Math.max(0, p.inv - dt);
-    if (p.downed) {
-      p.bleed -= dt;
-      let helper = null;
-      for (const q of this.players.values()) if (q !== p && this.isUp(q) && d2(p, q) < 26 * 26) helper = q;
-      p.revive = helper ? p.revive + dt * (helper.st.fastRevive ? 2 : 1) : Math.max(0, p.revive - dt * 0.5);
-      if (p.revive >= 2.5) { this.revivePlayer(p, 0.4); if (helper.st.fastRevive) p.shield = p.maxShield; }
-      else if (p.bleed <= 0) { p.dead = true; p.downed = false; this.text(`${p.name} 陣亡了…下一關會復活`, '#ff6b6b'); }
-      return;
-    }
-    // 狀態
-    p.slowT -= dt; p.burnT -= dt; p.poisT -= dt; p.frostCd -= dt; p.lastStandCd -= dt; p.frenzyT -= dt; p.dodgeCritT -= dt;
-    p.dotT -= dt;
-    if (p.dotT <= 0) {
-      p.dotT = 0.5;
-      const sc = 1 + 0.3 * (this.chapter - 1);
-      const dmg = ((p.burnT > 0 ? 3 : 0) + (p.poisT > 0 ? 2 : 0)) * sc;
-      if (dmg) this.hurtRaw(p, dmg);
-      if (!this.isUp(p)) return;
-    }
-    if (s.regen && p.hp < p.maxhp) p.hp = Math.min(p.maxhp, p.hp + s.regen * s.healMul * dt);
-    const c = CLASSES[p.cls];
-    p.energy = Math.min(p.maxEnergy, p.energy + c.regen * s.energyRegen * dt);
-    p.hitT += dt;
-    if (p.hitT > s.shieldDelay) p.shield = Math.min(p.maxShield, p.shield + 20 * s.shieldRegen * dt);
-    p.atkCd -= dt; p.skillCd -= dt; p.dodgeCd -= dt;
-
-    if (p.choice) { p.inv = Math.max(p.inv, 0.3); p.moving = false; return; }
-    if (p.stopT > 0) { p.stopT -= dt; p.moving = false; return; }
-
-    const inp = p.input || {};
-    let mx = +inp.mx || 0, my = +inp.my || 0;
-    const ml = Math.hypot(mx, my); if (ml > 1) { mx /= ml; my /= ml; }
-    p.moving = ml > 0.1;
-    if (inp.aim == null || !isFinite(inp.aim)) {
-      const t = this.nearestEnemy(p, 230);
-      if (t) p.aim = Math.atan2(t.y - p.y, t.x - p.x); else if (p.moving) p.aim = Math.atan2(my, mx);
-    } else p.aim = +inp.aim;
-    if (inp.dodge && p.dodgeCd <= 0 && p.dodgeT <= 0) {
-      const l = Math.hypot(mx, my);
-      if (l > 0.1) { p.dvx = mx / l; p.dvy = my / l; } else { p.dvx = Math.cos(p.aim); p.dvy = Math.sin(p.aim); }
-      p.dodgeT = 0.28; p.dodgeCd = 0.85 * s.dodgeCd;
-      if (s.dodgeCrit) p.dodgeCritT = 1.5;
-      this.ev({ k: 'snd', s: 'dodge' }); this.ev({ k: 'dust', x: r1(p.x), y: r1(p.y) });
-    }
-    const spd = c.speed * s.speed * (p.slowT > 0 ? 0.6 : 1);
-    const px = p.x, py = p.y;
-    if (p.dodgeT > 0) {
-      p.dodgeT -= dt;
-      this.moveEnt(p, p.dvx * spd * 2.7 * dt, p.dvy * spd * 2.7 * dt);
-      p.trailT -= dt;
-      if (p.trailT <= 0 && (s.dodgeFire || s.dodgePoison)) {
-        p.trailT = 0.07;
-        this.zones.push({ k: s.dodgeFire ? 'fire' : 'poison', x: p.x, y: p.y, r: 12, t: 2.5, tick: 0, owner: p.id });
-        if (s.dodgeFire && s.dodgePoison) this.zones.push({ k: 'poison', x: p.x, y: p.y, r: 12, t: 2.5, tick: 0.2, owner: p.id });
-      }
-      if (p.dodgeT <= 0 && s.dodgeShock) { this.blast(p, p.x, p.y, 50, 18, 'zap'); }
-    } else {
-      const k = p.spinT > 0 ? 0.75 : 1;
-      this.moveEnt(p, mx * spd * k * dt, my * spd * k * dt);
-    }
-    const L = this.opts.leash;
-    if (L) {
-      let cx = 0, cy = 0, n = 0;
-      for (const q of this.players.values()) if (q !== p && !q.dead) { cx += q.x; cy += q.y; n++; }
-      if (n) {
-        cx /= n; cy /= n;
-        if (Math.abs(p.x - cx) > L.x && Math.abs(p.x - cx) > Math.abs(px - cx)) p.x = px;
-        if (Math.abs(p.y - cy) > L.y && Math.abs(p.y - cy) > Math.abs(py - cy)) p.y = py;
-      }
-    }
-    if (inp.fire && p.atkCd <= 0 && p.dodgeT <= 0) this.attack(p);
-    if (inp.skill && p.skillCd <= 0 && p.dodgeT <= 0 && p.energy >= c.skillCost) this.skill(p);
-    if (p.spinT > 0) {
-      p.spinT -= dt; p.spinTick -= dt;
-      if (p.spinTick <= 0) {
-        p.spinTick = 0.2;
-        for (const e of this.enemies) if (!e.dead && dist(e, p) < 36 + e.r) this.hurtEnemy(e, this.pdmg(p, 13, e), p, Math.atan2(e.y - p.y, e.x - p.x), { kb: 30 });
-        this.projs = this.projs.filter(pr => !(pr.team === 'e' && Math.hypot(pr.x - p.x, pr.y - p.y) < 38));
-      }
-    }
-    // 被動
-    if (s.staticField) {
-      p.staticT -= dt;
-      if (p.staticT <= 0) {
-        p.staticT = 2;
-        const hit = new Set();
-        for (let i = 0; i < s.staticField; i++) {
-          const e = this.nearestEnemy(p, 120, hit);
-          if (!e) break;
-          hit.add(e.id);
-          this.hurtEnemy(e, this.pdmg(p, 12 * s.chainDmg, e), p, null, { proc: false, noCrit: true, col: 4 });
-          if (s.paralyze && !e.boss) e.stunT = 0.6;
-          this.ev({ k: 'zap', pts: [[r1(p.x), r1(p.y - 4)], [r1(e.x), r1(e.y)]] });
-        }
-      }
-    }
-    if (s.orbit) {
-      p.orbT -= dt;
-      if (p.orbT <= 0) {
-        p.orbT = 0.2;
-        for (let i = 0; i < s.orbit; i++) {
-          const a = this.time * 3.5 + i * TAU / s.orbit, bx = p.x + Math.cos(a) * 26, by = p.y - 3 + Math.sin(a) * 26;
-          for (const e of this.enemies) if (!e.dead && !e.under && Math.hypot(e.x - bx, e.y - by) < e.r + 6) this.hurtEnemy(e, this.pdmg(p, 7, e), p, a, { proc: false, kb: 20 });
-        }
-      }
-    }
-  }
-
   revivePlayer(p, frac) {
-    p.downed = false; p.hp = Math.ceil(p.maxhp * frac); p.revive = 0; p.inv = 1.5;
-    this.text(`${p.name} 重新站了起來！`, '#7dff9a'); this.ev({ k: 'snd', s: 'revive' });
+    p.downed = false; p.hp = Math.ceil(p.maxhp * frac); p.revive = 0; p.inv = 1.5; p.torchT = 0;
+    this.text(`${p.name} 從靈魂火炬中重生了！`, '#7dff9a'); this.ev({ k: 'snd', s: 'revive' }); this.ev({ k: 'holy', x: r1(p.x), y: r1(p.y) });
   }
   heal(p, amt) {
     if (!this.isUp(p)) return;
@@ -552,6 +834,7 @@ export class Game {
     for (const q of this.players.values()) if (q.st.aura && this.isUp(q) && d2(p, q) < 110 * 110) aura += q.st.aura;
     m *= 1 + aura;
     if (s.fullShieldDmg && p.shield >= p.maxShield - 0.5) m *= 1 + s.fullShieldDmg;
+    if (p.fieldT > 0) m *= 1.25;
     if (e) {
       if (e.burnT > 0) m *= 1 + s.dmgVsBurn;
       if (e.slowT > 0 || e.frozen > 0) m *= 1 + s.vsSlow;
@@ -568,106 +851,9 @@ export class Game {
     if (o.off) { ox = -Math.sin(a) * o.off; oy = Math.cos(a) * o.off; }
     this.projs.push({ id: this.id(), k: kind, team, owner, x: x + Math.cos(a) * 6 + ox, y: y + Math.sin(a) * 6 + oy, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
       dmg, r: o.r || 3, life: o.life || 1.6, pierce: o.pierce || 0, splash: o.splash || 0, heal: o.heal || 0, home: !!o.home, chain: !!o.chain,
-      ignite: !!o.ignite, frag: !!o.frag, fx: o.fx || null, proc: o.proc !== false, hit: [] });
+      ignite: !!o.ignite, frag: !!o.frag, fx: o.fx || null, proc: o.proc !== false, mark: !!o.mark, boom: !!o.boom, hit: [] });
   }
   pshoot(p, kind, a, speed, dmg, o = {}) { this.shoot('p', p.id, kind, p.x, p.y - 3, a, speed, dmg, o); }
-
-  attack(p) {
-    const s = p.st, a = p.aim, ms = s.multishot;
-    p.atkCount++;
-    const rate = s.rate * (p.frenzyT > 0 ? 1.35 : 1);
-    switch (p.cls) {
-      case 'knight': {
-        p.atkCd = 0.36 / rate;
-        const range = p.wl >= 3 ? 40 : 32;
-        for (const e of this.enemies) {
-          if (e.dead || e.under) continue;
-          if (dist(e, p) < range + e.r && Math.abs(angDiff(Math.atan2(e.y - p.y, e.x - p.x), a)) < 1.05) this.hurtEnemy(e, this.pdmg(p, 24, e), p, a, { kb: 90 });
-        }
-        this.projs = this.projs.filter(pr => {
-          if (pr.team === 'e' && Math.hypot(pr.x - p.x, pr.y - p.y) < range + 2 && Math.abs(angDiff(Math.atan2(pr.y - p.y, pr.x - p.x), a)) < 1.1) { this.ev({ k: 'spark', x: r1(pr.x), y: r1(pr.y) }); return false; }
-          return true;
-        });
-        this.ev({ k: 'slash', x: r1(p.x), y: r1(p.y), a: r2(a), i: p.id, r: range });
-        if ((s.unique && p.atkCount % 3 === 0) || p.wl >= 5) this.pshoot(p, 'sword', a, 230, 16, { pierce: 3, r: 5, life: 0.6 });
-        for (let i = 1; i <= ms; i++) for (const sg of [-1, 1]) this.pshoot(p, 'sword', a + sg * 0.3 * i, 230, 12, { pierce: 2, r: 5, life: 0.5 });
-        break;
-      }
-      case 'ranger': {
-        p.atkCd = 0.17 / rate;
-        const pierce = p.wl >= 5 ? 1 : 0, jit = rand(-0.05, 0.05);
-        this.pshoot(p, 'arrow', a + jit, 290, 11, { pierce, off: p.wl >= 3 ? -3 : 0 });
-        if (p.wl >= 3) this.pshoot(p, 'arrow', a + jit, 290, 11, { pierce, off: 3 });
-        if (s.unique) for (const sg of [-1, 1]) this.pshoot(p, 'arrow', a + sg * 0.3, 280, 9, { pierce });
-        for (let i = 1; i <= ms; i++) for (const sg of [-1, 1]) this.pshoot(p, 'arrow', a + sg * 0.12 * i, 280, 9, { pierce });
-        break;
-      }
-      case 'mage': {
-        if (p.energy < 3) { p.atkCd = 0.2; return; }
-        p.energy -= 3; p.atkCd = 0.42 / rate;
-        const splash = 24 * (p.wl >= 3 ? 1.4 : 1) * (s.unique ? 1.3 : 1);
-        const o = { splash, r: 4, ignite: s.unique, frag: p.wl >= 5 };
-        this.pshoot(p, 'fire', a, 190, 17, o);
-        for (let i = 1; i <= ms; i++) for (const sg of [-1, 1]) this.pshoot(p, 'fire', a + sg * 0.18 * i, 190, 13, o);
-        break;
-      }
-      case 'cleric': {
-        p.atkCd = 0.28 / rate;
-        const o = { pierce: 2 + (p.wl >= 3 ? 1 : 0), heal: 1 + (p.wl >= 3 ? 1 : 0), home: p.wl >= 5, chain: s.unique };
-        this.pshoot(p, 'holy', a, 220, 10, o);
-        for (let i = 1; i <= ms; i++) for (const sg of [-1, 1]) this.pshoot(p, 'holy', a + sg * 0.15 * i, 220, 8, o);
-        break;
-      }
-    }
-    if (s.iceShards && p.atkCount % s.iceShards === 0) for (let i = 0; i < 8; i++) this.pshoot(p, 'shard', i * TAU / 8, 200, 8, { fx: 'slow', proc: false, life: 0.8 });
-    if (s.holyShot && p.atkCount % s.holyShot === 0) this.pshoot(p, 'hbolt', a, 180, 14, { home: true, heal: 2, life: 2.5 });
-    this.ev({ k: 'snd', s: 'atk_' + p.cls });
-  }
-
-  skill(p) {
-    const c = CLASSES[p.cls], s = p.st;
-    p.energy -= c.skillCost; p.skillCd = c.skillCd * s.skillCd;
-    this.ev({ k: 'skill', i: p.id, c: p.cls, x: r1(p.x), y: r1(p.y) });
-    switch (p.cls) {
-      case 'knight': p.spinT = 2.2; p.spinTick = 0; break;
-      case 'ranger':
-        for (let i = -6; i <= 6; i++) this.pshoot(p, 'arrow', p.aim + i * 0.1, 300, 15, { pierce: 1 });
-        break;
-      case 'mage':
-        for (const e of this.enemies) {
-          if (e.dead || e.under || dist(e, p) > 90 + e.r) continue;
-          this.hurtEnemy(e, this.pdmg(p, 32, e), p, null);
-          if (e.boss) { e.frozen = Math.max(e.frozen, 0.8); e.stagger += 40; } else e.frozen = 2.8;
-        }
-        this.ev({ k: 'nova', x: r1(p.x), y: r1(p.y) });
-        break;
-      case 'cleric':
-        for (const q of this.players.values()) {
-          if (q.dead || dist(q, p) > 110) continue;
-          if (q.downed) this.revivePlayer(q, 0.5); else this.heal(q, 45);
-          q.shield = q.maxShield; q.inv = Math.max(q.inv, 1.5);
-          this.ev({ k: 'heal', x: r1(q.x), y: r1(q.y), v: 45 });
-        }
-        this.ev({ k: 'holy', x: r1(p.x), y: r1(p.y) });
-        break;
-    }
-    if (s.skillMeteor) {
-      const live = this.enemies.filter(e => !e.dead && !e.under);
-      for (let i = 0; i < s.skillMeteor; i++) {
-        const t = live.length ? pick(live) : p;
-        this.zones.push({ k: 'met', x: t.x + rand(-10, 10), y: t.y + rand(-10, 10), r: 30, t: 0.7 + i * 0.12, d: 0.7 + i * 0.12, owner: p.id });
-      }
-    }
-    if (s.thunderSkill) {
-      for (const e of this.enemies) if (!e.dead && !e.under) {
-        this.hurtEnemy(e, this.pdmg(p, 25, e), p, null, { proc: false, col: 4 });
-        if (!e.boss) e.stunT = 0.8;
-        this.ev({ k: 'zap', pts: [[r1(e.x + rand(-20, 20)), r1(e.y - 120)], [r1(e.x), r1(e.y)]] });
-      }
-      this.ev({ k: 'shake', v: 5 });
-    }
-    if (s.skillHealTeam) for (const q of this.players.values()) if (this.isUp(q)) { this.heal(q, q.maxhp * 0.25); this.ev({ k: 'heal', x: r1(q.x), y: r1(q.y), v: Math.round(q.maxhp * 0.25) }); }
-  }
 
   hurtRaw(p, dmg) {
     if (!this.isUp(p)) return;
@@ -675,21 +861,38 @@ export class Game {
     const s = Math.min(p.shield, dmg); p.shield -= s; p.hp -= dmg - s;
     if (p.hp <= 0) this.goDown(p);
   }
-  hurtPlayer(p, dmg, fx = null) {
+  hurtPlayer(p, dmg, fx = null, sx = null, sy = null) {
     if (!this.isUp(p) || p.dodgeT > 0 || p.inv > 0) return false;
     const s = p.st;
-    if (p.spinT > 0) dmg *= 0.5;
+    if (p.blockT > 0 && sx != null && Math.abs(angDiff(Math.atan2(sy - p.y, sx - p.x), p.aim)) < 1.7) {
+      if (p.blockAge < (s.unique ? 0.5 : 0.3)) {
+        // 完美格擋：反彈衝擊波並暈眩
+        p.blockT = 0; p.inv = 0.4;
+        for (const e of this.enemies) if (!e.dead && !e.under && dist(e, p) < 84 + e.r) {
+          this.hurtEnemy(e, this.pdmg(p, 45, e), p, Math.atan2(e.y - p.y, e.x - p.x), { kb: 160 });
+          if (e.boss) e.stagger += 60; else e.stunT = Math.max(e.stunT, 1.5);
+        }
+        this.projs = this.projs.filter(pr => !(pr.team === 'e' && Math.hypot(pr.x - p.x, pr.y - p.y) < 84));
+        this.ev({ k: 'parry', i: p.id, x: r1(p.x), y: r1(p.y) }); this.ev({ k: 'shake', v: 6, o: p.id }); this.ev({ k: 'snd', s: 'parry' });
+        this.addUlt(p, 15);
+        return false;
+      }
+      dmg *= 0.1;
+    }
     dmg = Math.max(1, Math.round(dmg * (1 - s.dr)));
     p.hitT = 0; p.flash = 0.15; p.inv = 0.45;
     const hadShield = p.shield > 0;
-    const sh = Math.min(p.shield, dmg); p.shield -= sh; p.hp -= dmg - sh;
+    let left = dmg;
+    const b = Math.min(p.barrier, left); p.barrier -= b; left -= b;
+    const sh = Math.min(p.shield, left); p.shield -= sh; p.hp -= left - sh;
+    if (dmg >= p.maxhp * TIMING.staggerFrac && p.blockT <= 0) { p.staggerT = 0.25; p.combo = 0; p.chargeT = 0; p.holdT = 0; }
     this.ev({ k: 'phit', x: r1(p.x), y: r1(p.y), v: dmg, i: p.id });
     if (fx === 'slow') p.slowT = 2; else if (fx === 'burn') p.burnT = 3; else if (fx === 'poison') p.poisT = 4;
     if (s.thorns) for (const e of this.enemies) if (!e.dead && !e.under && dist(e, p) < 48 + e.r) this.hurtEnemy(e, this.pdmg(p, s.thorns, e), p, null, { proc: false, noCrit: true });
     if (s.frostArmor && p.frostCd <= 0) {
       p.frostCd = 4;
       for (const e of this.enemies) if (!e.dead && dist(e, p) < 64) e.frozen = Math.max(e.frozen, e.boss ? 0.5 : 1.6);
-      this.ev({ k: 'nova', x: r1(p.x), y: r1(p.y), r: 64 });
+      this.ev({ k: 'nova', x: r1(p.x), y: r1(p.y), r: 64, o: p.id });
     }
     if (s.shieldNova && hadShield && p.shield <= 0) this.blast(p, p.x, p.y, 64, 40, 'steel');
     if (p.hp <= 0) this.goDown(p);
@@ -700,8 +903,9 @@ export class Game {
     if (s.lastStand && p.lastStandCd <= 0) { p.hp = 1; p.lastStandCd = 20; p.inv = 1; this.text(`${p.name} 的鋼鐵意志抵擋了致命一擊！`, '#c0cadf'); return; }
     if (s.guardian && !p.guardianUsed) { p.guardianUsed = true; p.hp = Math.ceil(p.maxhp * 0.5); p.inv = 2; this.text(`守護天使庇佑了 ${p.name}！`, '#fff0a0'); this.ev({ k: 'holy', x: r1(p.x), y: r1(p.y) }); return; }
     if (p.lives > 0) { p.lives--; p.hp = Math.ceil(p.maxhp * 0.5); p.inv = 2; this.dirty = true; this.text(`${p.name} 以不屈意志復活！`, '#ffd34d'); this.ev({ k: 'holy', x: r1(p.x), y: r1(p.y) }); return; }
-    p.hp = 0; p.downed = true; p.bleed = 20; p.revive = 0; p.spinT = 0;
-    this.text(`${p.name} 倒地了！站在旁邊救援！`, '#ff8a5c'); this.ev({ k: 'snd', s: 'down' });
+    if (this.state === 'hub') { p.hp = p.maxhp; return; }
+    p.hp = 0; p.downed = true; p.torchT = TIMING.torch; p.revive = 0; p.ultT = 0; p.blockT = 0; p.chargeT = 0; p.barrier = 0;
+    this.text(`${p.name} 化為靈魂火炬！隊友靠近長按互動鍵救援`, '#ff8a5c'); this.ev({ k: 'snd', s: 'down' });
   }
 
   // ---------- 對敵傷害 ----------
@@ -724,7 +928,9 @@ export class Game {
     this.ev({ k: 'hit', x: r1(e.x), y: r1(e.y - e.r), v: dmg, c: crit ? 1 : o.col || 0 });
     if (o.fx === 'slow') e.slowT = Math.max(e.slowT, 2);
     if (o.ignite && p) this.ignite(e, p);
-    if (p && o.proc !== false) this.procs(p, e, crit);
+    if (p && o.proc !== false) { this.procs(p, e, crit); this.addUlt(p, 4); }
+    e.hitAt = this.time;
+    if (e.type === 'dummy') { if (e.hp < e.maxhp * 0.5) e.hp = e.maxhp; return; }
     if (e.hp <= 0) return this.killEnemy(e, p);
     if (p && p.st.execute && !e.boss && e.hp < e.maxhp * p.st.execute) { this.ev({ k: 'exec', x: r1(e.x), y: r1(e.y) }); this.killEnemy(e, p); }
   }
@@ -767,7 +973,7 @@ export class Game {
   }
   blast(p, x, y, r, base, kind) {
     for (const e of this.enemies) if (!e.dead && !e.under && Math.hypot(e.x - x, e.y - y) < r + e.r) this.hurtEnemy(e, this.pdmg(p, base, e), p, Math.atan2(e.y - y, e.x - x), { proc: false, noCrit: true, kb: 60 });
-    this.ev({ k: 'boom', x: r1(x), y: r1(y), r, c: kind });
+    this.ev({ k: 'boom', x: r1(x), y: r1(y), r, c: kind, o: p.id });
   }
 
   killEnemy(e, p) {
@@ -778,7 +984,7 @@ export class Game {
     if (e.boss) { if (this.enemies.some(o => o.boss && !o.dead)) return; return this.bossDown(e); }
     const ow = p || this.players.get(e.burnOwner) || this.players.get(e.poisonOwner);
     if (p) {
-      p.kills++;
+      p.kills++; this.addUlt(p, 3);
       if (p.st.killHeal) this.heal(p, p.st.killHeal);
       if (p.st.frenzy) p.frenzyT = 2.5;
       if (p.st.shadowKnife) for (let i = 0; i < 4; i++) this.shoot('p', p.id, 'knife', e.x, e.y, i * TAU / 4 + rand(0, 1), 220, 10, { proc: false, pierce: 1, life: 0.7 });
@@ -818,7 +1024,8 @@ export class Game {
   createEnemy(type, x, y, o = {}) {
     const B = BOSSES[type], D = B || ENEMIES[type];
     const np = Math.max(1, this.players.size), d = this.diff();
-    let hp = B ? D.hp * (1 + 0.6 * (np - 1)) : D.hp * (1 + 0.09 * (d - 1)) * (1 + 0.25 * (np - 1));
+    const ps = PARTY.hp[Math.min(4, np)];
+    let hp = B ? D.hp * ps : D.hp * (1 + 0.09 * (Math.max(1, d) - 1)) * ps;
     const e = { id: this.id(), type, x, y, r: D.r, hp, maxhp: hp, sp: D.sp * (1 + 0.008 * d), dmg: D.dmg * (1 + 0.035 * (d - 1)),
       boss: !!B, ai: B ? 'boss' : D.ai, armor: D.armor || 0, st: 'idle', t: rand(0.3, 1.2), cd: rand(0.8, 2), cd2: rand(1, 2.5),
       frozen: 0, flash: 0, a: 0, stun: 0, stagger: 0, wob: rand(0, 6.28), z: 0, atk: null, slowT: 0, vulnT: 0, stunT: 0,
@@ -846,7 +1053,7 @@ export class Game {
     }
   }
   contact(e, mul = 1, fx = null) {
-    for (const p of this.players.values()) if (this.isUp(p) && Math.hypot(p.x - e.x, p.y - e.y) < e.r + p.r + 1) this.hurtPlayer(p, e.dmg * mul, fx);
+    for (const p of this.players.values()) if (this.isUp(p) && Math.hypot(p.x - e.x, p.y - e.y) < e.r + p.r + 1) this.hurtPlayer(p, e.dmg * mul, fx, e.x, e.y);
   }
   moveE(e, a, sp, dt) {
     const dx = Math.cos(a) * sp * dt, dy = Math.sin(a) * sp * dt;
@@ -861,7 +1068,7 @@ export class Game {
     }
   }
   enemyBlast(e, r, dmg, fx) {
-    for (const p of this.players.values()) if (this.isUp(p) && dist(p, e) < r + p.r) this.hurtPlayer(p, dmg, fx);
+    for (const p of this.players.values()) if (this.isUp(p) && dist(p, e) < r + p.r) this.hurtPlayer(p, dmg, fx, e.x, e.y);
     this.ev({ k: 'boom', x: r1(e.x), y: r1(e.y), r, c: fx === 'burn' ? 'fire' : 'enemy' }); this.ev({ k: 'shake', v: 4 });
   }
 
@@ -878,7 +1085,7 @@ export class Game {
       }
       e.burnT -= dt; e.poisonT -= dt; if (e.poisonT <= 0) e.poison = 0;
     }
-    e.slowT -= dt; e.vulnT -= dt;
+    e.slowT -= dt; e.vulnT -= dt; e.markT -= dt;
     if (e.frozen > 0) { e.frozen -= dt; if (!e.boss) return; }
     if (e.stunT > 0) { e.stunT -= dt; return; }
     const tgt = this.nearestUp(e);
@@ -1032,6 +1239,9 @@ export class Game {
         this.moveE(e, a, sp, dt);
         if (e.cd <= 0) { e.cd = 2.5; this.fire(e, D.shot, a); }
         break;
+      case 'dummy':
+        if (this.time - (e.hitAt || 0) > 2.5) e.hp = e.maxhp;
+        return;
       case 'static':
         if (e.type === 'eggSac') {
           e.hatch -= dt;
@@ -1507,6 +1717,8 @@ export class Game {
           }
           if (owner) {
             this.hurtEnemy(e, this.pdmg(owner, pr.dmg, e), owner, Math.atan2(pr.vy, pr.vx), { fx: pr.fx, ignite: pr.ignite, proc: pr.proc });
+            if (pr.mark && !e.dead) { e.markT = 6; e.markOwner = owner.id; }
+            if (pr.boom) this.blast(owner, e.x, e.y, 26, 18, 'gold');
             if (pr.heal) this.healLowest(pr.heal);
             if (pr.chain) this.chain(owner, e, this.pdmg(owner, pr.dmg * 0.6, null), 1);
           }
@@ -1516,15 +1728,15 @@ export class Game {
       } else if (!dead) {
         for (const p of this.players.values()) {
           if (!this.isUp(p) || p.dodgeT > 0) continue;
-          if (Math.hypot(p.x - pr.x, p.y - pr.y) < p.r + pr.r) { this.hurtPlayer(p, pr.dmg, pr.fx); dead = true; break; }
+          if (Math.hypot(p.x - pr.x, p.y - pr.y) < p.r + pr.r) { this.hurtPlayer(p, pr.dmg, pr.fx, pr.x - pr.vx * 0.05, pr.y - pr.vy * 0.05); dead = true; break; }
         }
       }
       if (dead) {
         const owner = this.players.get(pr.owner);
         if (pr.splash && owner) {
           for (const e of this.enemies) if (!e.dead && !e.under && Math.hypot(e.x - pr.x, e.y - pr.y) < pr.splash + e.r) this.hurtEnemy(e, this.pdmg(owner, pr.dmg * 0.6, e), owner, null, { ignite: pr.ignite, proc: false });
-          this.ev({ k: 'boom', x: r1(pr.x), y: r1(pr.y), r: pr.splash, c: 'fire', s: 1 });
-          if (pr.frag) for (let i = 0; i < 3; i++) this.shoot('p', pr.owner, 'fire', pr.x - pr.vx * 0.02, pr.y - pr.vy * 0.02, rand(0, TAU), 150, pr.dmg * 0.4, { splash: 14, r: 3, life: 0.5, ignite: pr.ignite });
+          this.ev({ k: 'boom', x: r1(pr.x), y: r1(pr.y), r: pr.splash, c: pr.k === 'orb' ? 'star' : 'fire', s: 1, o: pr.owner });
+          if (pr.frag) for (let i = 0; i < 3; i++) this.shoot('p', pr.owner, pr.k === 'orb' ? 'arcane' : 'fire', pr.x - pr.vx * 0.02, pr.y - pr.vy * 0.02, rand(0, TAU), 150, pr.dmg * 0.4, { splash: 14, r: 3, life: 0.5, ignite: pr.ignite });
         } else if (pr.life > 0) this.ev({ k: 'puff', x: r1(pr.x), y: r1(pr.y), c: pr.k });
       } else out.push(pr);
     }
@@ -1546,7 +1758,7 @@ export class Game {
             const c = Math.cos(h.a), s = Math.sin(h.a), along = dx * c + dy * s, perp = Math.abs(-dx * s + dy * c);
             hit = along > -p.r && along < h.len + p.r && perp < h.w / 2 + p.r;
           } else if (h.k === 'cone') hit = Math.hypot(dx, dy) < h.r && Math.abs(angDiff(Math.atan2(dy, dx), h.a)) < h.s;
-          if (hit) this.hurtPlayer(p, h.dmg, h.fx);
+          if (hit) this.hurtPlayer(p, h.dmg, h.fx, h.x, h.y);
         }
         if (h.k === 'circle') { this.ev({ k: 'boom', x: r1(h.x), y: r1(h.y), r: h.r, c: h.fx === 'poison' ? 'poison' : h.fx === 'burn' ? 'fire' : 'enemy' }); this.ev({ k: 'shake', v: 3 }); }
         else this.ev({ k: 'beam', x: r1(h.x), y: r1(h.y), a: r2(h.a), l: h.len, w: h.w });
@@ -1560,6 +1772,43 @@ export class Game {
     const keep = [];
     for (const z of this.zones) {
       z.t -= dt;
+      if (z.k === 'larrow') {
+        if (z.t <= 0) { const p = this.players.get(z.owner); if (p) this.blast(p, z.x, z.y, z.r, 16, 'light'); continue; }
+        keep.push(z); continue;
+      }
+      if (z.k === 'bigmet') { if (z.t > 0) keep.push(z); continue; }
+      if (z.k === 'grav' || z.k === 'field' || z.k === 'trap') {
+        if (z.t <= 0) continue;
+        const p = this.players.get(z.owner);
+        if (z.k === 'grav') for (const e of this.enemies) {
+          if (e.dead || e.boss || e.under) continue;
+          const dx = z.x - e.x, dy = z.y - e.y, dd = Math.hypot(dx, dy);
+          if (dd < z.r + 30 && dd > 3) { this.moveEnt(e, dx / dd * 80 * dt, dy / dd * 80 * dt); e.slowT = Math.max(e.slowT, 0.3); }
+        }
+        if (z.k === 'grav' && p) { z.tick -= dt; if (z.tick <= 0) { z.tick = 0.4; for (const e of this.enemies) if (!e.dead && !e.under && Math.hypot(e.x - z.x, e.y - z.y) < z.r) this.hurtEnemy(e, this.pdmg(p, 5, e), p, null, { proc: false, noCrit: true, kb: 0, col: 4 }); } }
+        if (z.k === 'field') for (const q of this.players.values()) {
+          if (!this.isUp(q) || Math.hypot(q.x - z.x, q.y - z.y) > z.r) continue;
+          q.fieldT = 0.2;
+          if (!z.given.includes(q.id)) { z.given.push(q.id); q.barrier = Math.max(q.barrier, q.maxhp * 0.3); q.barrierT = 8; this.ev({ k: 'heal', x: r1(q.x), y: r1(q.y), v: '護盾' }); }
+        }
+        if (z.k === 'trap') {
+          const e = this.enemies.find(o => !o.dead && !o.under && Math.hypot(o.x - z.x, o.y - z.y) < z.r + o.r);
+          if (e) {
+            e.stunT = Math.max(e.stunT, e.boss ? 0.6 : 2); e.vulnT = 6; e.vuln = Math.max(e.vuln || 0, 0.2);
+            if (e.boss) e.stagger += 40;
+            this.ev({ k: 'trap', x: r1(z.x), y: r1(z.y), o: z.owner }); this.ev({ k: 'snd', s: 'parry' });
+            continue;
+          }
+        }
+        keep.push(z); continue;
+      }
+      if (z.k === 'blaze') {
+        if (z.t <= 0) continue;
+        z.tick -= dt;
+        const p = this.players.get(z.owner);
+        if (z.tick <= 0 && p) { z.tick = 0.4; for (const e of this.enemies) if (!e.dead && !e.under && Math.hypot(e.x - z.x, e.y - z.y) < z.r) { this.hurtEnemy(e, this.pdmg(p, 9, e), p, null, { proc: false, noCrit: true, kb: 0, col: 2 }); this.ignite(e, p); } }
+        keep.push(z); continue;
+      }
       if (z.k === 'met') {
         if (z.t <= 0) { const p = this.players.get(z.owner); if (p) { this.blast(p, z.x, z.y, z.r, 30, 'fire'); for (const e of this.enemies) if (!e.dead && Math.hypot(e.x - z.x, e.y - z.y) < z.r) this.ignite(e, p); } continue; }
         keep.push(z); continue;
@@ -1592,7 +1841,7 @@ export class Game {
       for (const p of this.players.values()) {
         if (!this.isUp(p)) continue;
         if (pk.k === 'hp' && p.hp >= p.maxhp) continue;
-        if (pk.k === 'en' && p.energy >= p.maxEnergy) continue;
+        if (pk.k === 'en' && p.ultE >= 100 * CLASSES[p.cls].ult.charges) continue;
         const d = Math.hypot(p.x - pk.x, p.y - pk.y);
         if (d < bd) { bd = d; best = p; }
       }
@@ -1601,7 +1850,7 @@ export class Game {
           taken = true;
           if (pk.k === 'coin') this.gold += best.st.goldMul;
           else if (pk.k === 'hp') { this.heal(best, 30); this.ev({ k: 'heal', x: r1(best.x), y: r1(best.y), v: 30 }); }
-          else if (pk.k === 'en') best.energy = Math.min(best.maxEnergy, best.energy + 25);
+          else if (pk.k === 'en') this.addUlt(best, 25);
           this.ev({ k: 'snd', s: pk.k === 'coin' ? 'coin' : 'pickup' });
         } else {
           const a = Math.atan2(best.y - pk.y, best.x - pk.x);
@@ -1621,7 +1870,7 @@ export class Game {
   }
   updateObjs(dt) {
     for (const p of this.players.values()) {
-      if (!this.isUp(p) || p.choice) { p.useId = null; p.useT = 0; continue; }
+      if (!this.isUp(p) || p.choice || !p.input.use) { p.useId = null; p.useT = 0; continue; }
       let tgt = null;
       for (const o of this.objs) if (this.usable(o, p) && Math.hypot(o.x - p.x, o.y - p.y) < 16) tgt = o;
       if (!tgt) { p.useId = null; p.useT = 0; continue; }
@@ -1685,24 +1934,27 @@ export class Game {
     const ps = [];
     for (const p of this.players.values()) {
       const c = CLASSES[p.cls];
+      const sp = c.special, uc = c.ult.charges;
       ps.push({ i: p.id, n: p.name, c: p.cls, sk: p.skin, x: r1(p.x), y: r1(p.y), a: r2(p.aim), hp: Math.ceil(p.hp), mh: p.maxhp,
-        sh: Math.ceil(p.shield), ms: p.maxShield, en: Math.floor(p.energy), dg: p.dodgeT > 0 ? 1 : 0, dn: p.downed ? 1 : 0, dd: p.dead ? 1 : 0,
-        rv: r2(p.revive / 2.5), bl: Math.ceil(p.bleed), sk2: r2(Math.max(0, p.skillCd) / (c.skillCd * p.st.skillCd)), sp: p.spinT > 0 ? 1 : 0,
-        fl: p.flash > 0 ? 1 : 0, mv: p.moving ? 1 : 0, iv: p.inv > 0 ? 1 : 0, k: p.kills, dm: p.dmgDealt,
-        se: (p.slowT > 0 ? 1 : 0) | (p.burnT > 0 ? 2 : 0) | (p.poisT > 0 ? 4 : 0), ob: p.st.orbit, ch: p.choice ? 1 : 0,
+        sh: Math.ceil(p.shield), ms: p.maxShield, br: Math.ceil(p.barrier), st: p.state, cb: p.combo, dn: p.downed ? 1 : 0, dd: p.dead ? 1 : 0,
+        tt: Math.ceil(p.torchT), rv: r2(p.revive / TIMING.reviveHold), fl: p.flash > 0 ? 1 : 0, mv: p.moving ? 1 : 0, iv: p.inv > 0 ? 1 : 0, k: p.kills, dm: p.dmgDealt,
+        dc: this.charges(p, 'dash'), dm2: c.dash.charges, dcd: p.dashT.length ? r2(1 - Math.min(...p.dashT) / (c.dash.cd * p.st.dodgeCd)) : 1,
+        sc: this.charges(p, 'special'), sm: sp.charges, scd: p.spT.length ? r2(1 - Math.min(...p.spT) / (sp.cd * p.st.skillCd)) : 1,
+        uc: this.ultCharges(p), um: uc, ue: r2((p.ultE % 100) / 100), chg: r2(p.chargeT), pw: this.perfectWindow(p), blk: p.blockT > 0 ? 1 : 0, ul: p.ultT > 0 ? 1 : 0, fd: p.fieldT > 0 ? 1 : 0,
+        rd: p.ready ? 1 : 0, se: (p.slowT > 0 ? 1 : 0) | (p.burnT > 0 ? 2 : 0) | (p.poisT > 0 ? 4 : 0), ob: p.st.orbit, ch: p.choice ? 1 : 0,
         ut: p.useId ? r2(p.useT / NEED[(this.objs.find(o => o.id === p.useId) || {}).k || 'chest']) : 0 });
     }
     const snap = {
-      t: 's', st: this.state, ph: this.phase, cp: this.chapter, sg: this.stage, ty: this.stype, g: Math.floor(this.gold), tm: r2(this.time), ps,
+      t: 's', st: this.state, ph: this.phase, cd: this.countdown == null ? null : r2(this.countdown), cp: this.chapter, sg: this.stage, ty: this.stype, g: Math.floor(this.gold), tm: r2(this.time), ps,
       es: this.enemies.map(e => ({ i: e.id, t: e.type, x: r1(e.x), y: r1(e.y), hp: Math.max(0, Math.round(e.hp)), mh: e.maxhp, fz: e.frozen > 0 ? 1 : 0, fl: e.flash > 0 ? 1 : 0,
         st: e.st, a: r2(e.a), z: Math.round(e.z || 0), el: e.elite ? 1 : 0, sc: e.scale,
-        se: (e.burnT > 0 ? 1 : 0) | (e.poison > 0 ? 2 : 0) | (e.slowT > 0 ? 4 : 0) | (e.stunT > 0 ? 8 : 0), un: e.under ? 1 : 0, fc: e.ai === 'shield' ? r2(e.face) : undefined, c: e.cls, im: e.boss && this.bossDmgMul(e) === 0 ? 1 : 0, pt: e.petrify > 0 ? 1 : 0 })),
-      pr: this.projs.map(p => ({ i: p.id, k: p.k, x: r1(p.x), y: r1(p.y), a: r2(Math.atan2(p.vy, p.vx)), e: p.team === 'e' ? 1 : 0 })),
+        se: (e.burnT > 0 ? 1 : 0) | (e.poison > 0 ? 2 : 0) | (e.slowT > 0 ? 4 : 0) | (e.stunT > 0 ? 8 : 0), un: e.under ? 1 : 0, fc: e.ai === 'shield' ? r2(e.face) : undefined, c: e.cls, mk: e.markT > 0 ? 1 : 0, vn: e.vulnT > 0 ? 1 : 0, im: e.boss && this.bossDmgMul(e) === 0 ? 1 : 0, pt: e.petrify > 0 ? 1 : 0 })),
+      pr: this.projs.map(p => ({ i: p.id, k: p.k, x: r1(p.x), y: r1(p.y), a: r2(Math.atan2(p.vy, p.vx)), e: p.team === 'e' ? 1 : 0, o: p.team === 'p' ? p.owner : undefined })),
       hz: this.hazards.map(h => ({ k: h.k, x: r1(h.x), y: r1(h.y), r: h.r, a: r2(h.a || 0), l: h.len, w: h.w, s: h.s, p: r2(h.t / h.delay), d: h.dmg > 0 ? 1 : 0, f: h.fx || undefined })),
-      zn: this.zones.map(z => ({ k: z.k, x: r1(z.x), y: r1(z.y), r: z.r, p: z.d ? r2(1 - z.t / z.d) : r2(Math.min(1, z.t)), on: z.on ? 1 : 0 })),
+      zn: this.zones.map(z => ({ k: z.k, x: r1(z.x), y: r1(z.y), r: z.r, p: z.d ? r2(1 - z.t / z.d) : r2(Math.min(1, z.t)), on: z.on ? 1 : 0, o: z.owner })),
       pk: this.pickups.map(p => ({ i: p.id, k: p.k, x: r1(p.x), y: r1(p.y) })),
       sp: this.spawns.map(s => ({ x: r1(s.x), y: r1(s.y), p: r2(s.t), el: s.el ? 1 : 0 })),
-      ob: this.objs.map(o => ({ i: o.id, k: o.k, x: o.x, y: o.y, it: o.it, c: o.c, o: o.opened || o.sold ? 1 : 0, u: o.used, tr: o.trap === 'mimic' ? 1 : 0 })),
+      ob: this.objs.map(o => ({ i: o.id, k: o.k, x: o.x, y: o.y, it: o.it, c: o.c, o: o.opened || o.sold ? 1 : 0, u: o.used, tr: o.trap === 'mimic' ? 1 : 0, cl: o.cls })),
       dr: this.doors ? this.doors.map(d => ({ x: d.x, y: d.y, t: d.t })) : null, ds: this.doorSel, dt: r2((this.doorT || 0) / 1.2),
       bs: this.enemies.filter(e => e.boss && !e.dead).map(e => { const m = this.bossDmgMul(e); return { i: e.id, n: e.name, hp: Math.max(0, Math.ceil(e.hp)), mh: e.maxhp,
         sg: r2(Math.min(1, e.stagger / e.staggerMax)), st: e.stun > 0 ? 1 : 0, rg: e.raged ? 1 : 0, im: m === 0 ? 1 : m < 1 ? 2 : 0, ms: this.mechStatus(e), gg: e.mech === 'heat' ? r2(e.heat / 100) : undefined }; }),

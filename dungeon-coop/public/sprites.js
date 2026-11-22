@@ -1,5 +1,6 @@
 // 像素圖。角色為 16×20 完整繪製；敵人以「左半邊」字串定義後自動鏡像。
 import { ENEMIES, BOSSES, SKINS } from './data.js';
+import { enhance } from './art.js';
 
 const BASE = { k: '#16121f', s: '#f2c49b', S: '#c8916a', e: '#1a1426', w: '#f4f1ea', y: '#ffd34d', g: '#ffe14a', r: '#ff4040', f: '#2a2233' };
 const mirror = rows => rows.map(r => r + r.split('').reverse().join(''));
@@ -196,6 +197,7 @@ function set(img) {
 }
 
 const cache = new Map();
+const enhanceC = c => enhance(c);
 export function playerSprite(cls, skin = 'default') {
   const key = 'p:' + cls + ':' + skin;
   if (cache.has(key)) return cache.get(key);
@@ -211,7 +213,7 @@ export function enemySprite(type) {
   if (cache.has(key)) return cache.get(key);
   let s;
   if (BOSSES[type]) { const spr = BOSSES[type].spr; s = set(toCanvas(mirror(TPL[spr]), { ...BASE, m: '#8a94a8', M: '#4a5468', ...(BOSS_PAL[type] || BOSS_PAL[spr]) })); }
-  else { const d = ENEMIES[type]; s = set(toCanvas(mirror(TPL[d.spr]), { ...BASE, m: '#8a94a8', M: '#4a5468', b: '#7a5230', B: '#4a3020', ...(d.pal || BOSS_PAL[d.spr]) })); }
+  else { const d = ENEMIES[type]; s = set(enhanceC(toCanvas(mirror(TPL[d.spr]), { ...BASE, m: '#8a94a8', M: '#4a5468', b: '#7a5230', B: '#4a3020', ...(d.pal || BOSS_PAL[d.spr]) }))); }
   cache.set(key, s);
   return s;
 }

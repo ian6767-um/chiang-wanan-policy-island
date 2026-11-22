@@ -1,118 +1,67 @@
-// 存檔與營地（科技樹、皮膚商店）
+// 營地：科技樹與造型（資料存在伺服器帳號）
 import { CLASSES, TREE, TREE_MAP, SKINS } from './data.js';
-import { playerSprite } from './sprites.js';
+import { heroArt } from './art.js';
 
-const KEY = 'abyss_save_v1';
 const CLS = Object.keys(CLASSES);
-function fresh() {
-  return { v: 1, crystals: 120, runs: 0, best: { ch: 0, sg: 0 },
-    tree: Object.fromEntries(CLS.map(c => [c, {}])), owned: Object.fromEntries(CLS.map(c => [c, ['default']])), sel: Object.fromEntries(CLS.map(c => [c, 'default'])) };
-}
-export function loadSave() {
-  try {
-    const s = JSON.parse(localStorage.getItem(KEY));
-    if (s && s.v === 1) { const f = fresh(); for (const c of CLS) { s.tree[c] ||= {}; s.owned[c] ||= ['default']; s.sel[c] ||= 'default'; } return { ...f, ...s }; }
-  } catch { /* 無法讀取時使用新存檔 */ }
-  return fresh();
-}
-export function persist(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* 瀏覽器不允許儲存 */ } }
-export const metaFor = (s, cls) => ({ tree: s.tree[cls] || {}, skin: s.sel[cls] || 'default' });
-
 const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-export function spriteCanvas(cls, skin, scale = 4) {
-  const img = playerSprite(cls, skin)[0].n, c = document.createElement('canvas');
-  c.width = img.width * scale; c.height = img.height * scale;
-  const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(img, 0, 0, c.width, c.height);
-  c.style.imageRendering = 'pixelated';
+export function heroCanvas(cls, skin, size = 96) {
+  const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+  const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(heroArt(cls, skin).idle[0], 0, 0);
+  c.style.width = size + 'px'; c.style.height = size + 'px'; c.style.imageRendering = 'pixelated';
   return c;
 }
-
-export function createCamp(save, onChange) {
-  let cls = 'knight', sel = 'hp';
-  const el = document.getElementById('camp');
-  const nodeName = n => (n.id === 'unique' ? `${n.name}：${CLASSES[cls].uniqueName}` : n.name);
+// 造型卡片（營地與鏡像衣櫃共用）
+export function skinCards(box, profile, cls, onAction) {
+  box.innerHTML = '';
+  for (const s of SKINS[cls]) {
+    const owned = (profile.owned[cls] || []).includes(s.id), on = profile.sel[cls] === s.id;
+    const d = document.createElement('div'); d.className = 'skin' + (on ? ' on' : '');
+    d.appendChild(heroCanvas(cls, s.id));
+    d.insertAdjacentHTML('beforeend', `<div class="nm">${esc(s.name)}</div>`);
+    const b = document.createElement('button');
+    b.className = owned ? 'alt' : 'gold';
+    b.textContent = on ? '使用中' : owned ? '換上' : `解鎖 ${s.cost} 魂晶`;
+    b.disabled = on || (!owned && profile.crystals < s.cost);
+    b.onclick = () => onAction(s);
+    d.appendChild(b);
+    box.appendChild(d);
+  }
+}
+export function createCamp({ getProfile, api, onChange, setErr }) {
+  let cls = CLS[0], sel = 'hp';
+  const nodeName = n => (n.id === 'unique' ? `絕技：${CLASSES[cls].uniqueName}` : n.name);
   const nodeDesc = (n, l) => (n.id === 'unique' ? CLASSES[cls].uniqueDesc : n.desc(l));
   const reqOk = (tree, n) => !n.req || (tree[n.req[0]] || 0) >= n.req[1];
-
-  function buy(n) {
-    const tree = save.tree[cls], lv = tree[n.id] || 0;
-    if (lv >= n.max || !reqOk(tree, n)) return;
-    const cost = n.cost(lv + 1);
-    if (save.crystals < cost) return;
-    save.crystals -= cost; tree[n.id] = lv + 1;
-    persist(save); onChange(); render();
-  }
-  function skinAction(sk) {
-    const owned = save.owned[cls];
-    if (!owned.includes(sk.id)) {
-      if (save.crystals < sk.cost) return;
-      save.crystals -= sk.cost; owned.push(sk.id);
-    }
-    save.sel[cls] = sk.id;
-    persist(save); onChange(); render();
-  }
-
+  const act = async (route, body) => { try { setErr(''); const r = await api(route, body); onChange(r.profile); render(); } catch (e) { setErr(e.message); } };
   function render() {
-    const tree = save.tree[cls];
-    el.querySelector('#campCrystals').textContent = save.crystals;
-    el.querySelector('#campBest').textContent = save.best.ch ? `最佳紀錄：第 ${save.best.ch} 章 ${save.best.sg} 關 · 冒險 ${save.runs} 次` : `冒險 ${save.runs} 次`;
-    // 職業分頁
-    const tabs = el.querySelector('#campTabs'); tabs.innerHTML = '';
+    const P = getProfile(); if (!P) return;
+    const tree = P.trees[cls] || {};
+    document.getElementById('campCrystals').textContent = P.crystals;
+    const tabs = document.getElementById('campTabs'); tabs.innerHTML = '';
     for (const c of CLS) {
-      const b = document.createElement('button');
-      b.className = 'tab' + (c === cls ? ' on' : ''); b.style.setProperty('--c', CLASSES[c].color);
-      b.appendChild(spriteCanvas(c, save.sel[c], 2));
-      b.insertAdjacentHTML('beforeend', `<span>${CLASSES[c].name}</span>`);
-      b.onclick = () => { cls = c; render(); };
-      tabs.appendChild(b);
+      const b = document.createElement('button'); b.className = 'tab' + (c === cls ? ' on' : '');
+      b.textContent = CLASSES[c].name; b.style.color = CLASSES[c].color;
+      b.onclick = () => { cls = c; render(); }; tabs.appendChild(b);
     }
-    // 科技樹
-    const box = el.querySelector('#tree'); box.innerHTML = '';
+    const box = document.getElementById('tree'); box.innerHTML = '';
     const pos = n => [(n.col + 0.5) * 20, (n.row + 0.5) * 20];
     let svg = '<svg viewBox="0 0 100 100" preserveAspectRatio="none">';
-    for (const n of TREE) if (n.req) {
-      const [x1, y1] = pos(TREE_MAP[n.req[0]]), [x2, y2] = pos(n), ok = reqOk(tree, n);
-      svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${ok ? '#ffd34d' : '#3a3366'}" stroke-width="${ok ? 0.8 : 0.6}" vector-effect="non-scaling-stroke" style="stroke-width:${ok ? 3 : 2}px"/>`;
-    }
+    for (const n of TREE) if (n.req) { const [x1, y1] = pos(TREE_MAP[n.req[0]]), [x2, y2] = pos(n); svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${reqOk(tree, n) ? '#ffd34d' : '#3a3366'}" vector-effect="non-scaling-stroke" stroke-width="3"/>`; }
     box.insertAdjacentHTML('beforeend', svg + '</svg>');
     for (const n of TREE) {
-      const lv = tree[n.id] || 0, ok = reqOk(tree, n), [x, y] = pos(n);
-      const d = document.createElement('button');
-      d.className = 'node' + (lv >= n.max ? ' max' : lv > 0 ? ' some' : ok ? ' open' : ' lock') + (sel === n.id ? ' sel' : '');
+      const lv = tree[n.id] || 0, [x, y] = pos(n), d = document.createElement('button');
+      d.className = 'node' + (lv >= n.max ? ' max' : lv > 0 ? ' some' : reqOk(tree, n) ? ' open' : ' lock') + (sel === n.id ? ' sel' : '');
       d.style.left = x + '%'; d.style.top = y + '%';
       d.innerHTML = `<b>${esc(nodeName(n))}</b><small>${lv}/${n.max}</small>`;
-      d.onclick = () => { sel = n.id; render(); };
-      box.appendChild(d);
+      d.onclick = () => { sel = n.id; render(); }; box.appendChild(d);
     }
-    // 詳細資訊
-    const n = TREE_MAP[sel], lv = tree[n.id] || 0, ok = reqOk(tree, n), cost = lv < n.max ? n.cost(lv + 1) : 0;
-    const det = el.querySelector('#nodeDetail');
-    det.innerHTML = `<h3>${esc(nodeName(n))} <small>Lv ${lv}/${n.max}</small></h3>
-      ${lv > 0 ? `<p>目前：${esc(nodeDesc(n, lv))}</p>` : ''}
-      ${lv < n.max ? `<p class="next">下一級：${esc(nodeDesc(n, lv + 1))}</p>` : '<p class="next">已達最高等級</p>'}
-      ${!ok ? `<p class="lockmsg">需要先將「${esc(nodeName(TREE_MAP[n.req[0]]))}」升到 Lv${n.req[1]}</p>` : ''}`;
-    if (lv < n.max) {
-      const b = document.createElement('button');
-      b.className = 'gold'; b.textContent = `升級（${cost} 魂晶）`;
-      b.disabled = !ok || save.crystals < cost;
-      b.onclick = () => buy(n);
-      det.appendChild(b);
-    }
-    // 皮膚
-    const sk = el.querySelector('#skins'); sk.innerHTML = '';
-    for (const s of SKINS[cls]) {
-      const owned = save.owned[cls].includes(s.id), on = save.sel[cls] === s.id;
-      const d = document.createElement('div'); d.className = 'skin' + (on ? ' on' : '');
-      d.appendChild(spriteCanvas(cls, s.id, 4));
-      d.insertAdjacentHTML('beforeend', `<div class="nm">${esc(s.name)}</div>`);
-      const b = document.createElement('button');
-      b.className = owned ? 'alt' : 'gold';
-      b.textContent = on ? '使用中' : owned ? '換上' : `${s.cost} 魂晶`;
-      b.disabled = on || (!owned && save.crystals < s.cost);
-      b.onclick = () => skinAction(s);
-      d.appendChild(b);
-      sk.appendChild(d);
-    }
+    const n = TREE_MAP[sel], lv = tree[n.id] || 0, ok = reqOk(tree, n);
+    const det = document.getElementById('nodeDetail');
+    det.innerHTML = `<b>${esc(nodeName(n))}　Lv ${lv}/${n.max}</b>${lv ? `<div>目前：${esc(nodeDesc(n, lv))}</div>` : ''}
+      ${lv < n.max ? `<div class="next">下一級：${esc(nodeDesc(n, lv + 1))}</div>` : '<div class="next">已達最高等級</div>'}
+      ${ok ? '' : `<div class="lockmsg">需要先將「${esc(nodeName(TREE_MAP[n.req[0]]))}」升到 Lv${n.req[1]}</div>`}`;
+    if (lv < n.max) { const b = document.createElement('button'); b.className = 'gold'; b.textContent = `升級（${n.cost(lv + 1)} 魂晶）`; b.disabled = !ok || P.crystals < n.cost(lv + 1); b.onclick = () => act('tree', { cls, node: n.id }); det.appendChild(b); }
+    skinCards(document.getElementById('campSkins'), P, cls, s => act('skin', { cls, skin: s.id }));
   }
-  return { render, setClass(c) { cls = c; } };
+  return { render, setClass(c) { if (CLASSES[c]) cls = c; } };
 }

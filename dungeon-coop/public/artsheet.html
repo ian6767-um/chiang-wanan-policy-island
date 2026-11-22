@@ -1,0 +1,23 @@
+<!doctype html><meta charset="utf-8"><title>美術總表</title>
+<style>body{background:#1a1626;color:#ddd;font-family:sans-serif;margin:12px}canvas{image-rendering:pixelated}</style>
+<canvas id="c"></canvas>
+<script type="module">
+import { heroArt, bossArt } from './art.js';
+import { SKINS, CLASSES, BOSSES } from './data.js';
+const c = document.getElementById('c'), x = c.getContext('2d');
+const S = 3, cls = Object.keys(CLASSES), bosses = Object.keys(BOSSES);
+c.width = 1500; c.height = 4 * 70 * S / 1.5 + Math.ceil(bosses.length / 8) * 100 * 2 + 60;
+x.imageSmoothingEnabled = false;
+x.fillStyle = '#2a2438'; x.fillRect(0, 0, c.width, c.height);
+let y = 0;
+cls.forEach((k, r) => SKINS[k].forEach((s, i) => {
+  const a = heroArt(k, s.id);
+  const bx = i * 370, by = r * 140;
+  x.drawImage(a.idle[0], bx, by, 128, 128); x.drawImage(a.run[1], bx + 120, by, 128, 128);
+  x.drawImage(a.weapon, bx + 250, by + 40, 64, 48);
+  x.fillStyle = '#fff'; x.font = '14px sans-serif'; x.fillText(`${CLASSES[k].name}・${s.name}`, bx + 4, by + 136);
+}));
+y = 4 * 140 + 10;
+bosses.forEach((b, i) => { const a = bossArt(b); x.drawImage(a.frames[0], (i % 8) * 186, y + Math.floor(i / 8) * 200, 186, 186); x.fillStyle = '#fff'; x.fillText(BOSSES[b].n, (i % 8) * 186 + 6, y + Math.floor(i / 8) * 200 + 196); });
+document.title = 'ok';
+</script>

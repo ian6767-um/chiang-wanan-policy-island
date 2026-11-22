@@ -1,5 +1,6 @@
 // 遊戲主視覺：低解析度繪製後放大，維持像素感
-import { playerSprite, enemySprite } from './sprites.js';
+import { enemySprite } from './sprites.js';
+import { heroArt, bossArt } from './art.js';
 
 const BW = 320, BH = 180;
 const buf = document.createElement('canvas'); buf.width = BW; buf.height = BH;
@@ -39,12 +40,12 @@ export function drawKeyArt(ctx, W, H, t) {
     b.fillRect(Math.round(px + Math.cos(a) * rr), Math.round(py + Math.sin(a) * rr * 0.9), 1, 1);
   }
   // 頭目剪影
-  const eye = enemySprite('voidlord').n;
-  b.globalAlpha = 0.9; b.drawImage(eye, px - 32, py - 34 + Math.sin(t) * 2, 64, 64); b.globalAlpha = 1;
-  b.drawImage(silhouette(enemySprite('dragon').n, '#2a0d2a'), 4, 52 + Math.sin(t * 0.8) * 3, 80, 80);
-  b.drawImage(silhouette(enemySprite('golem').n, '#1f0d26'), BW - 92, 60, 84, 84);
-  b.drawImage(silhouette(enemySprite('lich').n, '#24103a'), BW - 72, 34 + Math.sin(t * 1.2) * 2, 48, 48);
-  b.drawImage(silhouette(enemySprite('queen').n, '#200a22'), 60, 46 + Math.sin(t * 0.9 + 1) * 2, 44, 44);
+  const eye = bossArt('voidlord').frames[Math.floor(t * 2) % 2];
+  b.drawImage(eye, px - 48, py - 50 + Math.sin(t) * 2);
+  b.drawImage(silhouette(bossArt('dragon').frames[0], '#2a0d2a'), -6, 40 + Math.sin(t * 0.8) * 3);
+  b.drawImage(silhouette(bossArt('golem').frames[0], '#1f0d26'), BW - 96, 46);
+  b.drawImage(silhouette(bossArt('witch').frames[0], '#24103a'), BW - 120, 20 + Math.sin(t * 1.2) * 2);
+  b.drawImage(silhouette(bossArt('queen').frames[0], '#200a22'), 40, 30 + Math.sin(t * 0.9 + 1) * 2);
   // 石柱
   for (const [x, h] of [[24, 120], [BW - 40, 120]]) {
     b.fillStyle = '#16121f'; b.fillRect(x, BH - h, 16, h);
@@ -58,11 +59,10 @@ export function drawKeyArt(ctx, W, H, t) {
   b.fillStyle = '#2a2240'; b.fillRect(0, BH - 34, BW, 2);
   for (let i = 0; i < 20; i++) { b.fillStyle = '#231c36'; b.fillRect(i * 16 + (i % 2) * 4, BH - 24 + (i % 3) * 6, 10, 1); }
   // 四位獵人
-  const heroes = [['knight', 'default'], ['ranger', 'default'], ['mage', 'default'], ['cleric', 'default']];
-  heroes.forEach(([c, sk], i) => {
-    const img = playerSprite(c, sk)[0].n, x = BW / 2 - 92 + i * 46, y = BH - 66 + Math.round(Math.sin(t * 2 + i) * 1.5);
-    b.fillStyle = 'rgba(0,0,0,0.4)'; b.beginPath(); b.ellipse(x + 16, BH - 27, 13, 4, 0, 0, 7); b.fill();
-    b.drawImage(img, x, y, 32, 40);
+  ['aegis', 'blade', 'star', 'hunter'].forEach((c, i) => {
+    const art = heroArt(c, null), img = art.idle[Math.floor(t * 4 + i) % 4], x = BW / 2 - 118 + i * 56, y = BH - 86;
+    b.fillStyle = 'rgba(0,0,0,0.5)'; b.beginPath(); b.ellipse(x + 32, BH - 28, 13, 4, 0, 0, 7); b.fill();
+    b.drawImage(img, x, y);
   });
   // 餘燼
   for (let i = 0; i < 36; i++) {

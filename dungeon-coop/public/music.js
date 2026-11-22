@@ -90,6 +90,7 @@ export const JINGLES = {
 
 // ---------- 合成 ----------
 let AC = null, analyser = null, out = null, musicGain = null, echoIn = null, waves = {}, noise = null;
+let lastFileSong = null;
 let cur = null, timer = null, muted = false, volume = 0.55;
 try { muted = localStorage.getItem('ah_music') === 'off'; } catch { /* 無法讀取 */ }
 
@@ -216,10 +217,26 @@ function play(e, t, sd) {
   else voice(s.arpWave || 'p12', freq(e.m), t, dur, e.v, { sus: 0.5 });
 }
 
+// 若 public/music/ 內有對應音檔（例如用 Suno 生成），優先播放音檔
+const FILE_OF = { title: 'title', camp: 'hub', event: 'dungeon', ch1: 'dungeon', ch2: 'dungeon', ch3: 'dungeon', ch4: 'dungeon', ch5: 'dungeon', boss: 'boss', final: 'boss' };
+const files = {};
+let fileAudio = null, fileKey = null;
+export function probeMusicFiles() {
+  fetch('/api/music').then(r => r.json()).then(j => { for (const f of j.files || []) files[f.replace(/\.mp3$/, '')] = 'music/' + f; }).catch(() => {});
+}
+function playFile(f) {
+  if (fileKey === f) return true;
+  if (fileAudio) fileAudio.pause();
+  fileAudio = new Audio(files[f]); fileAudio.loop = true; fileAudio.volume = muted ? 0 : volume; fileAudio.play().catch(() => {});
+  fileKey = f; return true;
+}
 export function playSong(name, tr = 0) {
   if (!AC) return;
   const key = name + ':' + tr;
   if (cur && cur.key === key) return;
+  const f = FILE_OF[name];
+  if (f && files[f]) { if (fileKey !== f) { stopMusic(0.2); playFile(f); } cur = cur && cur.key === key ? cur : null; lastFileSong = key; return; }
+  if (fileAudio) { fileAudio.pause(); fileAudio = null; fileKey = null; }
   stopMusic(0.25);
   const song = SONGS[name];
   if (!song) return;
@@ -233,6 +250,7 @@ export function playSong(name, tr = 0) {
 }
 export function playJingle(name) {
   if (!AC) return;
+  if (fileAudio) { fileAudio.pause(); fileAudio = null; fileKey = null; }
   const j = JINGLES[name];
   stopMusic(0.1);
   setTimeout(() => {
@@ -263,5 +281,6 @@ export function toggleMute() {
   muted = !muted;
   try { localStorage.setItem('ah_music', muted ? 'off' : 'on'); } catch { /* 無法儲存 */ }
   if (out) out.gain.setTargetAtTime(muted ? 0 : volume, AC.currentTime, 0.05);
+  if (fileAudio) fileAudio.volume = muted ? 0 : volume;
   return muted;
 }

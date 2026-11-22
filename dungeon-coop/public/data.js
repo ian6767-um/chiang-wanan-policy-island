@@ -1,18 +1,31 @@
 // 深淵獵團 — 遊戲資料：職業、增幅、共鳴、科技樹、皮膚、敵人、章節
+// 四大職業（數值配置表）
+// dash/special/ult 皆為「可儲存充能」：charges=上限，cd=每次充能獨立冷卻秒數
 export const CLASSES = {
-  knight: { name: '騎士', hp: 130, shield: 60, speed: 72, regen: 6, skillName: '旋風斬', skillCost: 40, skillCd: 7, color: '#5b8cff',
-    desc: '近戰揮砍，可彈開正面的敵方子彈。', skillDesc: '旋轉攻擊周圍敵人 2 秒，期間受到傷害減半。',
-    uniqueName: '劍氣', uniqueDesc: '每第 3 次揮砍射出穿透劍氣' },
-  ranger: { name: '遊俠', hp: 90, shield: 40, speed: 84, regen: 6, skillName: '箭雨', skillCost: 45, skillCd: 6, color: '#4fc35a',
-    desc: '高速連射弓箭，機動性最高。', skillDesc: '扇形射出 13 支穿透箭。',
-    uniqueName: '多重箭', uniqueDesc: '普攻額外射出 2 支斜向箭' },
-  mage: { name: '法師', hp: 80, shield: 40, speed: 74, regen: 9, skillName: '冰霜新星', skillCost: 50, skillCd: 8, color: '#a46bff',
-    desc: '爆裂火球造成範圍傷害（消耗能量）。', skillDesc: '凍結周圍敵人並造成大量傷害，可累積頭目硬直。',
-    uniqueName: '炎爆', uniqueDesc: '火球必定點燃敵人，爆炸範圍 +30%' },
-  cleric: { name: '牧師', hp: 100, shield: 50, speed: 76, regen: 6, skillName: '聖光庇護', skillCost: 50, skillCd: 10, color: '#ffd34d',
-    desc: '穿透聖光彈，命中時治療受傷最重的隊友。', skillDesc: '範圍治療、補滿護盾，並立刻救起倒地隊友。',
-    uniqueName: '神聖連結', uniqueDesc: '聖光彈命中時連鎖到附近敵人' },
+  blade: { name: '冥刃行者', role: '近戰高機動刺客', hp: 110, shield: 40, speed: 90, color: '#ff3a5a', width: 1,
+    dash: { charges: 2, cd: 1.8 }, special: { name: '影襲飛刃', charges: 3, cd: 4 }, ult: { name: '千影瞬獄殺', charges: 2, gain: 1.0 },
+    combo: [{ r: 30, arc: 1.1, dmg: 11, cd: 0.15 }, { r: 30, arc: 1.1, dmg: 11, cd: 0.15 }, { r: 32, arc: 1.2, dmg: 12, cd: 0.17 }, { r: 34, arc: 0.9, dmg: 24, cd: 0.36, lunge: 44, kb: 140 }],
+    desc: '高速雙刃四連斬，第四擊向前突刺。', skillDesc: '扇形射出 3 把飛刃標記敵人，衝刺穿過被標記的敵人會引爆。', ultDesc: '化作殘影高速斬擊 8 次（無敵），最後原地暗影爆炸。',
+    uniqueName: '血月突刺', uniqueDesc: '第四擊突刺距離加倍並放出月牙斬擊波' },
+  star: { name: '星隕法師', role: '遠程爆發與控場', hp: 85, shield: 45, speed: 78, color: '#8a7bff', width: 1,
+    dash: { charges: 2, cd: 1.8 }, special: { name: '重力奇點', charges: 2, cd: 7 }, ult: { name: '諸神黃昏隕石', charges: 1, gain: 0.9 },
+    combo: [{ dmg: 11, cd: 0.27 }, { dmg: 11, cd: 0.27 }, { dmg: 20, cd: 0.45, burst: 28 }],
+    desc: '追蹤奧術飛彈，第三擊為範圍爆裂彈。', skillDesc: '在目標處召喚小型黑洞 2.5 秒，牽引並減速小怪。', ultDesc: '吟唱 0.8 秒後召喚巨大隕石，留下 5 秒燃燒地帶。',
+    uniqueName: '星環分裂', uniqueDesc: '第三擊的爆裂彈會分裂成 3 顆' },
+  aegis: { name: '重盾戰神', role: '前排坦克與反擊', hp: 165, shield: 70, speed: 66, color: '#ffb43a', width: 1.2,
+    dash: { charges: 2, cd: 1.8 }, special: { name: '神盾反擊', charges: 2, cd: 5 }, ult: { name: '泰坦英靈領域', charges: 2, gain: 0.9 },
+    combo: [{ r: 36, arc: 1.3, dmg: 16, cd: 0.42 }, { r: 36, arc: 1.3, dmg: 16, cd: 0.42 }, { r: 44, slam: 1, dmg: 30, cd: 0.62, stun: 0.8 }],
+    desc: '大範圍橫掃重擊，第三擊躍起砸地暈眩。', skillDesc: '舉盾 1.2 秒（正面減傷 90%），0.3 秒內受擊觸發完美格擋反彈衝擊波。', ultDesc: '展開金色結界 6 秒：隊友獲得 30% 最大生命護盾與攻擊 +25%。',
+    uniqueName: '不動如山', uniqueDesc: '完美格擋判定延長到 0.5 秒，舉盾時回復護盾' },
+  hunter: { name: '狩獵遊俠', role: '遠程持續輸出與陷阱', hp: 95, shield: 40, speed: 86, color: '#3affa0', width: 1,
+    dash: { charges: 3, cd: 1.8 }, special: { name: '毒藤捕獸夾', charges: 3, cd: 5 }, ult: { name: '阿波羅萬箭齊發', charges: 3, gain: 1.6 },
+    combo: [{ dmg: 10, cd: 0.16 }],
+    desc: '點擊快速連射；長按蓄力，光圈縮到最小時放開射出完美穿透箭。翻滾時自動射出追蹤箭。', skillDesc: '投擲隱形陷阱，敵人踩中定身 2 秒並易傷（全隊傷害 +20%）。', ultDesc: '向扇形區域降下密集光箭轟炸，可連續傾瀉。',
+    uniqueName: '月神之眼', uniqueDesc: '完美穿透箭判定加寬，命中時爆炸' },
 };
+// 隊伍人數縮放：hp 倍率與怪量倍率（索引＝人數）
+export const PARTY = { hp: [1, 1, 1.6, 2.2, 2.8], count: [1, 1, 1.15, 1.3, 1.5] };
+export const TIMING = { iframes: 0.25, reviveHold: 2.5, reviveFrac: 0.4, torch: 15, torchSpeed: 0.35, staggerFrac: 0.18, hubCountdown: 3 };
 
 export const defaultStats = () => ({
   dmg: 1, rate: 1, crit: 0.08, critDmg: 1.8, speed: 1, hpAdd: 0, shieldAdd: 0, dr: 0, skillCd: 1, regen: 0, lifesteal: 0, healMul: 1, energyRegen: 1,
@@ -114,10 +127,10 @@ export const TREE = [
   { id: 'hp', name: '強健體魄', max: 5, col: 2, row: 0, req: null, cost: l => 30 + 20 * l, desc: l => `最大生命 +${15 * l}`, apply: (s, l) => { s.hpAdd += 15 * l; } },
   { id: 'atk', name: '武器精通', max: 5, col: 0, row: 1, req: ['hp', 1], cost: l => 40 + 25 * l, desc: l => `傷害 +${6 * l}%`, apply: (s, l) => { s.dmg *= 1 + 0.06 * l; } },
   { id: 'shield', name: '護盾強化', max: 3, col: 2, row: 1, req: ['hp', 1], cost: l => 40 + 30 * l, desc: l => `最大護盾 +${10 * l}`, apply: (s, l) => { s.shieldAdd += 10 * l; } },
-  { id: 'energy', name: '能量湧泉', max: 3, col: 4, row: 1, req: ['hp', 1], cost: l => 40 + 30 * l, desc: l => `能量回復 +${15 * l}%`, apply: (s, l) => { s.energyRegen *= 1 + 0.15 * l; } },
+  { id: 'energy', name: '神力匯聚', max: 3, col: 4, row: 1, req: ['hp', 1], cost: l => 40 + 30 * l, desc: l => `大招能量累積 +${15 * l}%`, apply: (s, l) => { s.energyRegen *= 1 + 0.15 * l; } },
   { id: 'crit', name: '精準', max: 3, col: 0, row: 2, req: ['atk', 2], cost: l => 80 + 40 * l, desc: l => `暴擊率 +${3 * l}%`, apply: (s, l) => { s.crit += 0.03 * l; } },
   { id: 'speed', name: '敏捷', max: 3, col: 2, row: 2, req: ['shield', 1], cost: l => 80 + 40 * l, desc: l => `移動速度 +${4 * l}%`, apply: (s, l) => { s.speed *= 1 + 0.04 * l; } },
-  { id: 'cd', name: '冥想', max: 3, col: 4, row: 2, req: ['energy', 2], cost: l => 80 + 40 * l, desc: l => `技能冷卻 -${6 * l}%`, apply: (s, l) => { s.skillCd *= 1 - 0.06 * l; } },
+  { id: 'cd', name: '冥想', max: 3, col: 4, row: 2, req: ['energy', 2], cost: l => 80 + 40 * l, desc: l => `特殊技冷卻 -${6 * l}%`, apply: (s, l) => { s.skillCd *= 1 - 0.06 * l; } },
   { id: 'boon', name: '天賦起手', max: 2, col: 0, row: 3, req: ['crit', 1], cost: l => 200 + 150 * l, desc: l => `開局獲得 ${l} 次增幅選擇`, apply: (s, l) => { s.startBoons += l; } },
   { id: 'forge', name: '起始鍛造', max: 2, col: 1, row: 3, req: ['atk', 3], cost: l => 220 + 150 * l, desc: l => `武器初始等級 +${l}`, apply: (s, l) => { s.wlStart += l; } },
   { id: 'revive', name: '不屈意志', max: 1, col: 2, row: 3, req: ['speed', 2], cost: () => 400, desc: () => '每局一次：倒地時立即以 50% 生命復活', apply: s => { s.lives += 1; } },
@@ -128,32 +141,35 @@ export const TREE = [
 export const TREE_MAP = Object.fromEntries(TREE.map(n => [n.id, n]));
 
 // 皮膚：覆寫角色調色盤
+// 皮膚：art.js 依調色盤程序化繪製 64x64 角色
+// 鍵：c1 主色、c2 副色、cloak 披風/圍巾、metal 金屬、skin 皮膚、glow 霓虹發光、trail 武器軌跡
 export const SKINS = {
-  knight: [
-    { id: 'default', name: '皇家騎士', cost: 0, pal: {} },
-    { id: 'obsidian', name: '黑曜騎士', cost: 300, pal: { m: '#5a5a6e', M: '#33333f', L: '#8a8aa0', a: '#9a1c2c', A: '#5e0f1a', y: '#ff5a3a' } },
-    { id: 'paladin', name: '黃金聖騎', cost: 500, pal: { m: '#ffe08a', M: '#c99a2a', L: '#fff6c8', a: '#f4f0e6', A: '#c8c0b0', y: '#5ab0ff' } },
-    { id: 'jade', name: '翡翠守衛', cost: 800, pal: { m: '#7fe0b0', M: '#3a9a70', L: '#c8ffe4', a: '#1f6a4a', A: '#0f3a28', y: '#ffd34d' } },
+  blade: [
+    { id: 'styx', name: '冥河叛逆者', cost: 0, pal: { c1: '#2a1018', c2: '#5a1a24', cloak: '#c0182c', metal: '#2a2430', skin: '#e8b898', glow: '#ff2a3a', trail: '#ff4a4a' } },
+    { id: 'thunder', name: '蒼藍雷鬼', cost: 300, pal: { c1: '#2a1a4a', c2: '#4a2a7a', cloak: '#2a8aff', metal: '#8ab0ff', skin: '#e8c0a0', glow: '#4ae0ff', trail: '#7ae8ff' } },
+    { id: 'sun', name: '黃金太陽神衛', cost: 500, pal: { c1: '#f0e8d0', c2: '#c8b070', cloak: '#ffb020', metal: '#ffd860', skin: '#d8a070', glow: '#fff07a', trail: '#ffd040' } },
+    { id: 'bone', name: '虛空骨刺', cost: 800, pal: { c1: '#1a2420', c2: '#2a3a30', cloak: '#3aff8a', metal: '#e8e0c8', skin: '#e8e0c8', glow: '#5aff9a', trail: '#7affb0', mask: 1 } },
   ],
-  ranger: [
-    { id: 'default', name: '森林遊俠', cost: 0, pal: {} },
-    { id: 'snow', name: '雪原獵手', cost: 300, pal: { a: '#e8f2ff', A: '#a8bcd8', L: '#ffffff', c: '#4a7bd1', C: '#2b3f7a', b: '#6a8ab0', B: '#3a5070' } },
-    { id: 'fox', name: '赤狐', cost: 500, pal: { a: '#e0602a', A: '#9a3a14', L: '#ffa060', c: '#3a2418', C: '#1f130c', b: '#f4e8d0', B: '#b0a080' } },
-    { id: 'owl', name: '夜梟', cost: 800, pal: { a: '#4a3a6e', A: '#2a1f46', L: '#7a68a8', c: '#1a1428', C: '#0c0814', b: '#c9a7ff', B: '#7a5ab0' } },
+  star: [
+    { id: 'olympus', name: '奧林匹斯占星者', cost: 0, pal: { c1: '#1a2a6a', c2: '#2a3a8a', cloak: '#141c48', metal: '#ffd34d', skin: '#d8b090', glow: '#ffe07a', trail: '#8ab0ff' } },
+    { id: 'bloodmoon', name: '猩紅血月女巫', cost: 300, pal: { c1: '#5a0a1a', c2: '#8a1a2a', cloak: '#2a0610', metal: '#c8a0a0', skin: '#f0c8b0', glow: '#ff2a4a', trail: '#ff5a7a' } },
+    { id: 'frost', name: '永凍霜寒祭司', cost: 500, pal: { c1: '#d8ecff', c2: '#8ac0e8', cloak: '#5a8ac0', metal: '#e8f8ff', skin: '#e8d8d0', glow: '#7ae8ff', trail: '#bff4ff' } },
+    { id: 'necro', name: '冥界死靈領主', cost: 800, pal: { c1: '#1f3a28', c2: '#2a4a30', cloak: '#142418', metal: '#d8d0b0', skin: '#a8b0a0', glow: '#5aff5a', trail: '#9aff7a' } },
   ],
-  mage: [
-    { id: 'default', name: '紫袍法師', cost: 0, pal: {} },
-    { id: 'flame', name: '烈焰術士', cost: 300, pal: { a: '#c8301a', A: '#7a1a0e', L: '#ff7a4a', y: '#ffe14a' } },
-    { id: 'ice', name: '冰霜賢者', cost: 500, pal: { a: '#3ab0d8', A: '#1a6a8a', L: '#a8ecff', y: '#ffffff', w: '#dff6ff' } },
-    { id: 'star', name: '星空占星師', cost: 800, pal: { a: '#1a2058', A: '#0c1030', L: '#3a4aa8', y: '#ffd34d', w: '#c8c8e8' } },
+  aegis: [
+    { id: 'sparta', name: '青銅斯巴達', cost: 0, pal: { c1: '#b87a3a', c2: '#8a5424', cloak: '#c8202a', metal: '#d89a4a', skin: '#d8a078', glow: '#ffc04a', trail: '#ffd070' } },
+    { id: 'magma', name: '黑曜石熔岩巨人', cost: 300, pal: { c1: '#2a2228', c2: '#1a1418', cloak: '#ff5a1a', metal: '#3a3038', skin: '#ff7a2a', glow: '#ff6a1a', trail: '#ffa040' } },
+    { id: 'templar', name: '聖殿白銀騎士', cost: 500, pal: { c1: '#d8e0f0', c2: '#a0a8c0', cloak: '#3a6ad8', metal: '#f0f4ff', skin: '#e0b898', glow: '#5ac8ff', trail: '#9ae0ff' } },
+    { id: 'tide', name: '深海海神守衛', cost: 800, pal: { c1: '#1a4a6a', c2: '#0f2a40', cloak: '#ff7a8a', metal: '#4ac0c8', skin: '#c8d8d0', glow: '#3affe0', trail: '#7affea' } },
   ],
-  cleric: [
-    { id: 'default', name: '聖殿牧師', cost: 0, pal: {} },
-    { id: 'moon', name: '月光祭司', cost: 300, pal: { a: '#c8d4ff', A: '#8a98c8', L: '#ffffff', y: '#7fd8ff', h: '#e8e8f8', H: '#a8a8c8' } },
-    { id: 'sakura', name: '櫻花巫女', cost: 500, pal: { a: '#ffb0d0', A: '#d0709a', L: '#ffe0ee', y: '#ff4a7a', h: '#3a2030', H: '#1f1018' } },
-    { id: 'dark', name: '暗聖修女', cost: 800, pal: { a: '#2a1f3a', A: '#140e1f', L: '#4a3a66', y: '#c08cff', h: '#e8e0f0', H: '#a898c0' } },
+  hunter: [
+    { id: 'moon', name: '密林月神獵手', cost: 0, pal: { c1: '#3a5a2a', c2: '#5a3a1a', cloak: '#1a8a4a', metal: '#e8f0ff', skin: '#e0b090', glow: '#d8f0ff', trail: '#aaffd0' } },
+    { id: 'phoenix', name: '烈焰鳳凰射手', cost: 300, pal: { c1: '#6a1a0a', c2: '#3a120a', cloak: '#e8401a', metal: '#ffb030', skin: '#e8b890', glow: '#ff8a1a', trail: '#ffc040' } },
+    { id: 'cyber', name: '賽博霓虹遊俠', cost: 500, pal: { c1: '#14121e', c2: '#22203a', cloak: '#2a1a3a', metal: '#ff2ad8', skin: '#d8b8a8', glow: '#ff3ae0', trail: '#3af0ff' } },
+    { id: 'dune', name: '荒漠沙暴行者', cost: 800, pal: { c1: '#a88a4a', c2: '#7a5a2a', cloak: '#c8a060', metal: '#e8dcc0', skin: '#c89070', glow: '#ffd890', trail: '#f0d0a0', mask: 1 } },
   ],
 };
+export const defaultSkin = cls => SKINS[cls][0].id;
 
 // 敵人
 const P = {
@@ -216,6 +232,8 @@ export const ENEMIES = {
   mimic3: { n: '熔箱怪', spr: 'mimic', pal: { b: '#a8401a', B: '#5a1a08', y: '#ffe14a' }, ai: 'mimic', hp: 160, r: 8, sp: 76, dmg: 20, shot: { k: 'efire', n: 10, ring: 1, v: 110, fx: 'burn' } },
   mimic4: { n: '霜箱怪', spr: 'mimic', pal: { b: '#5a8ab0', B: '#2a4a6a', y: '#e8f8ff' }, ai: 'mimic', hp: 160, r: 8, sp: 76, dmg: 20, shot: { k: 'ice', n: 10, ring: 1, v: 100, fx: 'slow' } },
   mimic5: { n: '虛空箱怪', spr: 'mimic', pal: { b: '#4a2a6e', B: '#1f0f38', y: '#ff4af0' }, ai: 'mimic', hp: 160, r: 8, sp: 76, dmg: 20, shot: { k: 'dark', n: 10, ring: 1, v: 110 } },
+  // 聖殿大廳的訓練木樁
+  dummy: { n: '訓練木樁', spr: 'dummy', ai: 'dummy', hp: 999999, r: 9, sp: 0, dmg: 0, noDrop: 1 },
   // 頭目機制用的單位
   banner: { n: '骷髏戰旗', spr: 'banner', pal: { y: '#c8202f', r: '#ffd34d' }, ai: 'static', hp: 150, r: 8, sp: 0, dmg: 0, noDrop: 1, scale: 1.8 },
   eggSac: { n: '蛛卵', spr: 'egg', pal: { a: '#d8e8c0', A: '#8aa070', L: '#ffffff', b: '#7ac04a' }, ai: 'static', hp: 55, r: 7, sp: 0, dmg: 0, noDrop: 1, scale: 1.4 },
@@ -258,7 +276,7 @@ export const CHAPTERS = [
 ];
 export const STAGES_PER_CHAPTER = 10;
 // 每隻小怪所屬的章節（小怪只會出現在自己的章節）
-const EXTRA = { slimeMini: 2, spiderling: 2, voidSlimeMini: 5, banner: 1, eggSac: 2, vineRoot: 2, shroomClone: 2, phylactery: 4, shadowClone: 5 };
+const EXTRA = { dummy: 0, slimeMini: 2, spiderling: 2, voidSlimeMini: 5, banner: 1, eggSac: 2, vineRoot: 2, shroomClone: 2, phylactery: 4, shadowClone: 5 };
 CHAPTERS.forEach((c, i) => { for (const t of c.pool) ENEMIES[t].ch = i + 1; ENEMIES['mimic' + (i + 1)].ch = i + 1; });
 for (const [t, c] of Object.entries(EXTRA)) ENEMIES[t].ch = c;
 
